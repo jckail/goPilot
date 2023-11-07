@@ -75,7 +75,7 @@ def consolidate_go_files(directory):
         )
 
         # Write the final content to the file in the passed directory
-        output_file_path = os.path.join(directory, f"{package_name}.txt")
+        output_file_path = os.path.join(directory, f"{package_name}_go.txt")
         try:
             with open(output_file_path, "w") as f:
                 f.write(final_content)

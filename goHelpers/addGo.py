@@ -3,11 +3,13 @@ import os
 
 
 class AssistantManager:
-    def __init__(self, apiKey, uploadFiles, assistantName):
+    def __init__(self, apiKey, assistantName):
         self.client = openai.OpenAI(api_key=apiKey)
-        self.uploadFiles = uploadFiles
+        
         self.assistantName = assistantName
         self.my_assistant = self.fetchAssistant()
+        self.uploadFiles = []
+        self.updateAssistant()
 
     def removeFilesFromAssistant(self):
         print("\n Removing Files from Assistants: ")
@@ -19,8 +21,6 @@ class AssistantManager:
         for afile in assistant_files.data:
             print(
                 "\n Removing: ",
-                self.client.files.retrieve(afile.id).name,
-                print(""),
                 str(afile.id),
                 " from ",
                 self.my_assistant.name,
@@ -57,9 +57,10 @@ class AssistantManager:
         else:
             return False
 
-    def uploadFilestoAssistant(self):
+    def uploadFilestoAssistant(self,uploadFiles):
+        self.uploadFiles = uploadFiles
         print("\n uploading ",str(len(self.uploadFiles))," files to assistant")
-
+        
         print(
             "\n ",
             self.my_assistant.name,
@@ -101,18 +102,24 @@ class AssistantManager:
         return False
 
     def deleteDupe(self, uploadFile):
-        for fileId in self.my_assistant.file_ids:
-            f = self.client.files.retrieve(fileId)
-            if f.filename == os.path.basename(uploadFile):
-                print("duplicate detected: ", f.filename)
-
-                self.client.beta.assistants.files.delete(
-                    assistant_id=self.my_assistant.id, file_id=f.id
-                )
-                print(
-                    "duplicate deleted: ", f.filename, " from: ", self.my_assistant.name
-                )
         self.my_assistant = self.client.beta.assistants.retrieve(self.my_assistant.id)
+        if len(list(self.my_assistant.file_ids)) > 0:
+            for fileId in self.my_assistant.file_ids:
+                f = self.client.files.retrieve(fileId)
+                if f.filename == os.path.basename(uploadFile):
+                    print("duplicate detected: ", f.filename)
+
+                    self.client.beta.assistants.files.delete(
+                        assistant_id=self.my_assistant.id, file_id=f.id
+                    )
+                    ## this removes from OpenApi
+                    print("\n Deleting: ", f.filename, f.purpose, f.id)
+                    self.client.files.delete(f.id)
+                    ##
+                    print(
+                        "duplicate deleted: ", f.filename, " from: ", self.my_assistant.name
+                    )
+            self.my_assistant = self.client.beta.assistants.retrieve(self.my_assistant.id)
 
     def fetchAssistant(self):
         print("\n Fetching Assistant: ", self.assistantName)
@@ -124,6 +131,34 @@ class AssistantManager:
                 print("\n Found: ", ai.name)
                 return self.client.beta.assistants.retrieve(ai.id)
         return None
+    
+    def updateAssistant(self):
+        promptPath = "/home/ec2-user/projects/helpersPrivate/goHelpers/prompt.txt"
+
+        try:
+            with open(promptPath, 'r') as file:
+                prompt = file.read()
+            print("\n Updating Assistant: ", self.assistantName)
+            self.my_assistant = self.client.beta.assistants.update(
+            self.my_assistant.id,
+            instructions=prompt,
+            #name="goBot",
+            #tools=[{"type": "retrieval"}],
+            #model="gpt-4-1106-preview",
+            #file_ids=["file-abc123", "file-abc456"],
+            )
+            return None
+        except FileNotFoundError:
+            print("The file prompt.txt was not found.")
+            return "The file prompt.txt was not found."
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return f"An error occurred: {e}"
+        
+
+        
+
+
 
 
 # Example of how to use the class
