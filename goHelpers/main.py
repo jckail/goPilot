@@ -27,7 +27,8 @@ if __name__ == "__main__":
     logger.info(directories)
     files = getter.consolidate_go_files(directory)
     logger.info(files)
-    files.append("/Users/jkail/projects/helpersPrivate/goHelpers/best_practices_go.txt")
+    # files.append("/Users/jkail/projects/helpersPrivate/goHelpers/best_practices_go.txt")
+    #    files.append("/home/ec2-user/projects/helpersPrivate/goHelpers/best_practices_go.txt")
     # assistantId = "asst_6Jqvv49JQCXZrTLMnSBb8xNM"
     assistantManager = addGo.AssistantManager(apiKey, files, "goBot")
     assistantManager.uploadFilestoAssistant()
