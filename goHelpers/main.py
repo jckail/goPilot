@@ -5,10 +5,23 @@ import walkIt
 import addGo
 import getter
 import sys
+import shutil
 
 # Configure logging to write to stdout, which can be seen in the shell
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
+
+
+
+def copy_file(source, destination):
+    try:
+        # Copy the source file to the destination path
+        shutil.copy(source, destination)
+        print(f"File {source} copied to {destination} successfully.")
+    except FileNotFoundError:
+        print("The source file does not exist.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 
 if __name__ == "__main__":
@@ -28,7 +41,7 @@ if __name__ == "__main__":
     files = getter.consolidate_go_files(directory)
     logger.info(files)
     # files.append("/Users/jkail/projects/helpersPrivate/goHelpers/best_practices_context.txt")
-    files.append("/home/ec2-user/projects/helpersPrivate/goHelpers/best_practices_context.txt")
+    # files.append("/home/ec2-user/projects/helpersPrivate/goHelpers/best_practices_context.txt")
     # assistantId = "asst_6Jqvv49JQCXZrTLMnSBb8xNM"
     assistantManager = addGo.AssistantManager(apiKey, "goBot")
     # assistantManager.removeFilesFromAssistant()

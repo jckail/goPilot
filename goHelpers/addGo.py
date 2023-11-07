@@ -1,5 +1,7 @@
 import openai
 import os
+import shutil
+import fnmatch
 
 
 class AssistantManager:
@@ -8,7 +10,12 @@ class AssistantManager:
         
         self.assistantName = assistantName
         self.my_assistant = self.fetchAssistant()
+        self.execPath = "/home/ec2-user/projects/helpersPrivate/goHelpers/"
+        print(self.execPath)
         self.uploadFiles = []
+        self.promptPath = self.execPath+"prompt.txt"
+        self.additionalContext = self.getAdditionalContext()
+        
         self.updateAssistant()
 
     def removeFilesFromAssistant(self):
@@ -56,9 +63,17 @@ class AssistantManager:
             return True
         else:
             return False
+        
+    def getAdditionalContext(self):
+
+        context_files = []
+        for file in os.listdir(self.execPath):
+            if fnmatch.fnmatch(file, '*_context.txt'):
+                context_files.append(os.path.join(self.execPath, file))
+        return context_files
 
     def uploadFilestoAssistant(self,uploadFiles):
-        self.uploadFiles = uploadFiles
+        self.uploadFiles = uploadFiles + self.additionalContext
         print("\n uploading ",str(len(self.uploadFiles))," files to assistant")
         
         print(
@@ -87,6 +102,7 @@ class AssistantManager:
                 " added to ",
                 self.my_assistant.name,
             )
+            self.copy_and_delete_file(uploadFile)
         self.my_assistant = self.client.beta.assistants.retrieve(self.my_assistant.id)
         print(
             "\n ",
@@ -97,6 +113,7 @@ class AssistantManager:
         )
 
         if len(list(self.my_assistant.file_ids)) >= len(self.uploadFiles):
+            
             print("\n uploadFilestoAssistant Completed! \n")
             return True
         return False
@@ -133,10 +150,9 @@ class AssistantManager:
         return None
     
     def updateAssistant(self):
-        promptPath = "/home/ec2-user/projects/helpersPrivate/goHelpers/prompt.txt"
-
+        
         try:
-            with open(promptPath, 'r') as file:
+            with open( self.promptPath, 'r') as file:
                 prompt = file.read()
             print("\n Updating Assistant: ", self.assistantName)
             self.my_assistant = self.client.beta.assistants.update(
@@ -147,6 +163,8 @@ class AssistantManager:
             #model="gpt-4-1106-preview",
             #file_ids=["file-abc123", "file-abc456"],
             )
+            self.copy_and_delete_file(self.promptPath)
+            print("\n Assistant Updated! : ", self.assistantName)
             return None
         except FileNotFoundError:
             print("The file prompt.txt was not found.")
@@ -156,6 +174,29 @@ class AssistantManager:
             return f"An error occurred: {e}"
         
 
+    def copy_and_delete_file(self, source):
+
+        try:
+            # Copy the source file to the destination path
+            uploads = self.execPath + "uploads/"
+            shutil.copy(source, uploads)
+            print(f"File {source} copied to {uploads} successfully.")
+            
+            check = os.path.basename(source)
+            # Check if the file exists at the destination path before deleting
+            if os.path.isfile(uploads+check) and source not in self.additionalContext and source != self.promptPath:
+                # Remove the source file
+                os.remove(source)
+                print(f"File {source} has been deleted.")
+            else:
+                print(f"Failed to copy: {uploads} does not exist after copying.")
+                
+        except FileNotFoundError:
+            print("The source file does not exist.")
+        except PermissionError:
+            print("Permission denied: unable to delete the source file.")
+        except Exception as e:
+            print(f"An error occurred: {e}")
         
 
 
