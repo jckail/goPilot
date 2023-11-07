@@ -19,7 +19,7 @@ fi
 DIRECTORY=$1
 
 # Echo the command about to run
-echo "Running command: python3 \"$SCRIPT_DIR/getter.py\" \"$DIRECTORY\""
+echo "Running command: python3 \"$SCRIPT_DIR/main.py\" \"$DIRECTORY\""
 
 # Call the getter.py script with the directory argument
-python3 "$SCRIPT_DIR/getter.py" "$DIRECTORY" || echo "The python script failed to execute"
+python3 "$SCRIPT_DIR/main.py" "$DIRECTORY" || echo "The python script failed to execute"
