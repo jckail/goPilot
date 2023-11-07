@@ -8,6 +8,8 @@ logger = logging.getLogger()
 
 
 def consolidate_go_files(directory):
+    outputs = []
+
     # Dictionary to hold the package contents
     package_contents = {}
 
@@ -78,11 +80,12 @@ def consolidate_go_files(directory):
             with open(output_file_path, "w") as f:
                 f.write(final_content)
                 logger.info(f"File written: {output_file_path}")
+                outputs.append(output_file_path)
         except IOError as e:
             logger.error(f"Failed to write file: {output_file_path}, due to {e}")
 
     logger.info("Consolidation complete.")
-    return "Consolidation complete."
+    return outputs
 
 
 # The directory to consolidate should be passed as a command-line argument
