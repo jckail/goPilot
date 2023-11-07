@@ -58,7 +58,7 @@ class AssistantManager:
             return False
 
     def uploadFilestoAssistant(self):
-        print("\n uploading files to assistant")
+        print("\n uploading ",str(len(self.uploadFiles))," files to assistant")
 
         print(
             "\n ",
