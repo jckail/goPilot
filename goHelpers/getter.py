@@ -27,10 +27,6 @@ def consolidate_go_files(directory):
 
                 with open(file_path, "r") as f:
                     contents = f.read()
-                    if file == "gcr.go":
-                        logger.info(
-                            f"Contents of gcr.go before processing:\n{contents}"
-                        )
 
                     # Find the package name
                     package_match = package_pattern.search(contents)
