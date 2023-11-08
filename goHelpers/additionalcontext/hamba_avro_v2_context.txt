@@ -1,0 +1,1621 @@
+
+function loadScript(src, mod = true) {
+let s = document.createElement('script');
+s.src = src;
+if (mod) {
+s.type = 'module';
+s.async = true;
+s.defer = true
+}
+document.head.appendChild(s);
+}
+loadScript("/third_party/dialog-polyfill/dialog-polyfill.js", false)
+loadScript("/static/frontend/frontend.js");
+
+Skip to Main Content
+
+Why Go
+Case Studies
+Common problems companies solve with Go
+Use Cases
+Stories about how and why companies use Go
+Security Policy
+How Go can help keep you secure by default      Learn    Docs
+Effective Go
+Tips for writing clear, performant, and idiomatic Go code
+Go User Manual
+A complete introduction to building software with Go
+Standard library
+Reference documentation for Go's standard library
+Release Notes
+Learn what's new in each Go release      Packages    Community
+Recorded Talks
+Videos from prior events
+Meetups
+Meet other local Go developers
+Conferences
+Learn and network with Go developers from around the world
+Go blog
+The Go project's official blog.
+Go project
+Get help and stay informed from Go
+Get connected
+
+
+Why Go
+
+
+Why Go     Case Studies    Use Cases    Security Policy        Learn     Docs
+
+
+Docs     Effective Go    Go User Manual    Standard library    Release Notes        Packages     Community
+
+
+Community     Recorded Talks    Meetups       Conferences       Go blog    Go project
+Get connected
+
+
+Discover Packages    github.com/hamba/avro/v2
+
+avro  package  module
+Version: v2.17.2   Latest  Latest
+This package is not in the latest version of its module.     Go to latest     Published: Nov  5, 2023  License: MIT     Imports: 26     Imported by: 38
+Main  Versions  Licenses  Imports  Imported By
+Details      Valid go.mod file
+The Go module system was introduced in Go 1.11 and is the official dependency management
+solution for Go.       Redistributable license
+Redistributable licenses place minimal restrictions on how software can be used,
+modified, and redistributed.       Tagged version
+Modules with tagged versions give importers more predictable builds.       Stable version
+When a project reaches major version v1 it is considered stable.     Learn more about best practices    Repository
+github.com/hamba/avro   Links     Open Source Insights
+
+
+README
+
+
+
+A fast Go avro codec  Overview
+Install with:  go get github.com/hamba/avro/v2
+Note: This project has renamed the default branch from master to main . You will need to update your local environment.  Usage  type SimpleRecord struct {
+A int64  `avro:"a"`
+B string `avro:"b"`
+}
+
+schema, err := avro.Parse(`{
+"type": "record",
+"name": "simple",
+"namespace": "org.hamba.avro",
+"fields" : [
+{"name": "a", "type": "long"},
+{"name": "b", "type": "string"}
+]
+}`)
+if err != nil {
+log.Fatal(err)
+}
+
+in := SimpleRecord{A: 27, B: "foo"}
+
+data, err := avro.Marshal(schema, in)
+if err != nil {
+log.Fatal(err)
+}
+
+fmt.Println(data)
+// Outputs: [54 6 102 111 111]
+
+out := SimpleRecord{}
+err = avro.Unmarshal(schema, data, &out)
+if err != nil {
+log.Fatal(err)
+}
+
+fmt.Println(out)
+// Outputs: {27 foo}
+More examples in the godoc .  Types Conversions     Avro  Go Struct  Go Interface      null  nil  nil    boolean  bool  bool    bytes  []byte  []byte    float  float32  float32    double  float64  float64    long  int64 , uint32 *  int64 , uint32    int  int , int32 , int16 , int8 , uint8 *, uint16 *  int , uint8 , uint16    fixed  uint64  uint64    string  string  string    array  []T  []any    enum  string  string    fixed  [n]byte  [n]byte    map  map[string]T{}  map[string]any    record  struct  map[string]any    union  see below  see below    int.date  time.Time  time.Time    int.time-millis  time.Duration  time.Duration    long.time-micros  time.Duration  time.Duration    long.timestamp-millis  time.Time  time.Time    long.timestamp-micros  time.Time  time.Time    bytes.decimal  *big.Rat  *big.Rat    fixed.decimal  *big.Rat  *big.Rat    string.uuid  string  string
+* Please note that when the Go type is an unsigned integer care must be taken to ensure that information is not lost
+when converting between the Avro type and Go type. For example, storing a negative number in Avro of int = -100 would be interpreted as uint16 = 65,436 in Go. Another example would be storing numbers in Avro int = 256 that
+are larger than the Go type uint8 = 0 .  Unions
+The following union types are accepted: map[string]any , *T and any .   map[string]any: If the union value is nil , a nil map will be en/decoded.
+When a non- nil union value is encountered, a single key is en/decoded. The key is the avro
+type name, or scheam full name in the case of a named schema (enum, fixed or record).  * T: This is allowed in a "nullable" union. A nullable union is defined as a two schema union,
+with one of the types being null (ie. ["null", "string"] or ["string", "null"] ), in this case
+a *T is allowed, with T matching the conversion table above.  any: An interface can be provided and the type or name resolved. Primitive types
+are pre-registered, but named types, maps and slices will need to be registered with the Register function.
+In the case of arrays and maps the enclosed schema type or name is postfix to the type with a : separator,
+e.g "map:string" . Behavior when a type cannot be resolved will depend on your chosen configuation options:  !Config.UnionResolutionError && !Config.PartialUnionTypeResolution: the map type above is used  Config.UnionResolutionError && !Config.PartialUnionTypeResolution: an error is returned  !Config.UnionResolutionError && Config.PartialUnionTypeResolution: any registered type will get resolved while any unregistered type will fallback to the map type above.  Config.UnionResolutionError && !Config.PartialUnionTypeResolution: any registered type will get resolved while any unregistered type will return an error.     TextMarshaler and TextUnmarshaler
+The interfaces TextMarshaler and TextUnmarshaler are supported for a string schema type. The object will
+be tested first for implementation of these interfaces, in the case of a string schema, before trying regular
+encoding and decoding.
+Enums may also implement TextMarshaler and TextUnmarshaler , and must resolve to valid symbols in the given enum schema.  Identical Underlying Types
+One type can be ConvertibleTo another type if they have identical underlying types.
+A non-native type is allowed be used if it can be convertible to time.Time , big.Rat or avro.LogicalDuration for the particular of LogicalTypes .
+Ex.: type Timestamp time.Time  Untrusted Input With Bytes and Strings
+For security reasons, the configuration Config.MaxByteSliceSize restricts the maximum size of bytes and string types created
+by the Reader . The default maximum size is 1MiB and is configurable. This is required to stop untrusted input from consuming all memory and
+crashing the application. Should this not be need, setting a negative number will disable the behaviour.  Recursive Structs
+At this moment recursive structs are not supported. It is planned for the future.  Benchmark
+Benchmark source code can be found at: https://github.com/nrwiersma/avro-benchmarks  BenchmarkGoAvroDecode-8      	  788455	      1505 ns/op	     418 B/op	      27 allocs/op
+BenchmarkGoAvroEncode-8      	  624343	      1908 ns/op	     806 B/op	      63 allocs/op
+BenchmarkGoGenAvroDecode-8   	 1360375	       876.4 ns/op	     320 B/op	      11 allocs/op
+BenchmarkGoGenAvroEncode-8   	 2801583	       425.9 ns/op	     240 B/op	       3 allocs/op
+BenchmarkHambaDecode-8       	 5046832	       238.7 ns/op	      47 B/op	       0 allocs/op
+BenchmarkHambaEncode-8       	 6017635	       196.2 ns/op	     112 B/op	       1 allocs/op
+BenchmarkLinkedinDecode-8    	 1000000	      1003 ns/op	    1688 B/op	      35 allocs/op
+BenchmarkLinkedinEncode-8    	 3170553	       381.5 ns/op	     248 B/op	       5 allocs/op
+Always benchmark with your own workload. The result depends heavily on the data input.  Go structs generation
+Go structs can be generated for you from the schema. The types generated follow the same logic in types conversions
+Install the struct generator with:  go install github.com/hamba/avro/v2/cmd/avrogen@<version>
+Example usage assuming there's a valid schema in in.avsc :  avrogen -pkg avro -o bla.go -tags json:snake,yaml:upper-camel in.avsc
+Tip: Omit -o FILE to dump the generated Go structs to stdout instead of a file.
+Check the options and usage with -h :  avrogen -h
+Or use it as a lib in internal commands, it's the gen package  Avro schema validation
+A small Avro schema validation command-line utility is also available. This simple tool leverages the
+schema parsing functionality of the library, showing validation errors or optionally dumping parsed
+schemas to the console. It can be used in CI/CD pipelines to validate schema changes in a repository.
+Install the Avro schema validator with:  go install github.com/hamba/avro/v2/cmd/avrosv@<version>
+Example usage assuming there's a valid schema in in.avsc (exit status code is 0 ):  avrosv in.avsc
+An invalid schema will result in a diagnostic output and a non-zero exit status code:  avrosv bad-default-schema.avsc; echo $?
+Error: avro: invalid default for field someString. <nil> not a string
+2
+Schemas referencing other schemas can also be validated by providing all of them (schemas are parsed in order):  avrosv base-schema.avsc schema-withref.avsc
+Check the options and usage with -h :  avrosv -h  Go Version Support
+This library supports the last two versions of Go. While the minimum Go version is
+not guarantee to increase along side Go, it may jump from time to time to support
+additional features. This will be not be considered a breaking change.    Expand ▾  Collapse ▴
+Documentation
+
+Overview
+Package avro implements encoding and decoding of Avro as defined by the Avro specification.
+See the Avro specification for an understanding of Avro: http://avro.apache.org/docs/current/    Example (Usage)
+package main
+
+import (
+"fmt"
+"log"
+
+"github.com/hamba/avro/v2"
+)
+
+var Schema = `{
+"type": "record",
+"name": "simple",
+"namespace": "org.hamba.avro",
+"fields" : [
+{"name": "a", "type": "long"},
+{"name": "b", "type": "string"}
+]
+}`
+
+type SimpleRecord struct {
+A int64  `avro:"a"`
+B string `avro:"b"`
+}
+
+
+func main() {
+schema, err := avro.Parse(Schema)
+if err != nil {
+log.Fatal(err)
+}
+
+in := SimpleRecord{A: 27, B: "foo"}
+
+data, err := avro.Marshal(schema, in)
+if err != nil {
+log.Fatal(err)
+}
+
+fmt.Printf("%+v\n", data)
+
+out := SimpleRecord{}
+err = avro.Unmarshal(schema, data, &out)
+if err != nil {
+log.Fatal(err)
+}
+
+fmt.Printf("%+v\n", out)
+
+}  Output:  [54 6 102 111 111]
+{A:27 B:foo}
+
+Share  Format  Run    Examples   Package (Usage)  Marshal  NewDecoder  NewDecoderForSchema  NewEncoder  NewEncoderForSchema  Parse  Register  Unmarshal   Constants
+This section is empty.  Variables
+View Source  var DefaultConfig = Config {}.Freeze()
+DefaultConfig is the default API.
+View Source  var DefaultSchemaCache = & SchemaCache {}
+DefaultSchemaCache is the default cache for schemas.
+View Source  var NoDefault = noDef{}
+NoDefault is used when no default exists for a field.   Functions
+
+func Marshal
+
+func Marshal(schema Schema , v any ) ([] byte , error )
+Marshal returns the Avro encoding of v.   Example
+schema := avro.MustParse(`{
+"type": "record",
+"name": "simple",
+"namespace": "org.hamba.avro",
+"fields" : [
+{"name": "a", "type": "long"},
+{"name": "b", "type": "string"}
+]
+}`)
+
+type SimpleRecord struct {
+A int64  `avro:"a"`
+B string `avro:"b"`
+}
+
+simple := SimpleRecord{A: 27, B: "foo"}
+b, err := avro.Marshal(schema, simple)
+if err != nil {
+fmt.Println("error:", err)
+}
+
+fmt.Println(b)  Output:  [54 6 102 111 111]
+
+func Register
+
+func Register(name string , obj any )
+Register registers names to their types for resolution. All primitive types are pre-registered.   Example
+data := []byte{0x02, 0x02} // Your Avro data here
+schema := avro.MustParse(`["null", {"type":"enum", "name": "test", "symbols": ["A", "B"]}]`)
+
+avro.Register("test", "") // Register the name test as a string type
+
+var result any
+err := avro.Unmarshal(schema, data, &result)
+if err != nil {
+log.Fatal(err)
+}
+
+fmt.Println(result)  Output:  B
+
+func Unmarshal
+
+func Unmarshal(schema Schema , data [] byte , v any ) error
+Unmarshal parses the Avro encoded data and stores the result in the value pointed to by v.
+If v is nil or not a pointer, Unmarshal returns an error.   Example
+schema := avro.MustParse(`{
+"type": "record",
+"name": "simple",
+"namespace": "org.hamba.avro",
+"fields" : [
+{"name": "a", "type": "long"},
+{"name": "b", "type": "string"}
+]
+}`)
+
+type SimpleRecord struct {
+A int64  `avro:"a"`
+B string `avro:"b"`
+}
+
+data := []byte{0x36, 0x06, 0x66, 0x6F, 0x6F} // Your Avro data here
+simple := SimpleRecord{}
+if err := avro.Unmarshal(schema, data, &simple); err != nil {
+fmt.Println("error:", err)
+}
+
+fmt.Printf("%+v", simple)  Output:  {A:27 B:foo}     Types
+type API
+type API interface {  // Marshal returns the Avro encoding of v.  Marshal(schema Schema , v any ) ([] byte , error )  // Unmarshal parses the Avro encoded data and stores the result in the value pointed to by v.   // If v is nil or not a pointer, Unmarshal returns an error. Unmarshal(schema Schema , data [] byte , v any ) error   // NewEncoder returns a new encoder that writes to w using schema.  NewEncoder(schema Schema , w io . Writer ) * Encoder   // NewDecoder returns a new decoder that reads from reader r using schema.  NewDecoder(schema Schema , r io . Reader ) * Decoder   // DecoderOf returns the value decoder for a given schema and type.  DecoderOf(schema Schema , typ reflect2 . Type ) ValDecoder   // EncoderOf returns the value encoder for a given schema and type.  EncoderOf(schema Schema , tpy reflect2 . Type ) ValEncoder   // Register registers names to their types for resolution. All primitive types are pre-registered.  Register(name string , obj any )
+}
+API represents a frozen Config.
+type ArraySchema
+type ArraySchema struct { // contains filtered or unexported fields }
+ArraySchema is an Avro array type schema.
+
+func NewArraySchema
+
+func NewArraySchema(items Schema , opts ... SchemaOption ) * ArraySchema
+NewArraySchema creates an array schema instance.
+
+func (*ArraySchema) Fingerprint
+
+func (s * ArraySchema ) Fingerprint() [32] byte
+Fingerprint returns the SHA256 fingerprint of the schema.
+
+func (*ArraySchema) FingerprintUsing
+
+func (s * ArraySchema ) FingerprintUsing(typ FingerprintType ) ([] byte , error )
+FingerprintUsing returns the fingerprint of the schema using the given algorithm or an error.
+
+func (*ArraySchema) Items
+
+func (s * ArraySchema ) Items() Schema
+Items returns the items schema of an array.
+
+func (*ArraySchema) MarshalJSON
+
+func (s * ArraySchema ) MarshalJSON() ([] byte , error )
+MarshalJSON marshals the schema to json.
+
+func (ArraySchema) Prop
+
+func (p ArraySchema) Prop(name string ) any
+Prop gets a property from the schema.
+
+func (*ArraySchema) String
+
+func (s * ArraySchema ) String() string
+String returns the canonical form of the schema.
+
+func (*ArraySchema) Type
+
+func (s * ArraySchema ) Type() Type
+Type returns the type of the schema.
+type Config
+type Config struct {  // TagKey is the struct tag key used when en/decoding structs.   // This defaults to "avro". TagKey string   // BlockLength is the length of blocks for maps and arrays.   // This defaults to 100. BlockLength int   // DisableBlockSizeHeader disables encoding of an array/map size in bytes.   // Encoded array/map will be prefixed with only the number of elements in  // contrast with default behavior which prefixes them with the number of elements  // and the total number of bytes in the array/map. Both approaches are valid according to the  // Avro specification, however not all decoders support the latter. DisableBlockSizeHeader bool   // UnionResolutionError determines if an error will be returned   // when a type cannot be resolved while decoding a union. UnionResolutionError bool   // PartialUnionTypeResolution dictates if the union type resolution   // should be attempted even when not all union types are registered.  // When enabled, the underlying type will get resolved if it is registered  // even if other types of the union are not. If resolution fails, logic  // falls back to default union resolution behavior based on the value of  // UnionResolutionError. PartialUnionTypeResolution bool   // Disable caching layer for encoders and decoders, forcing them to get rebuilt on every   // call to Marshal() and Unmarshal() DisableCaching bool   // MaxByteSliceSize is the maximum size of `bytes` or `string` types the Reader will create, defaulting to 1MiB.   // If this size is exceeded, the Reader returns an error. This can be disabled by setting a negative number. MaxByteSliceSize int }
+Config customises how the codec should behave.
+
+func (Config) Freeze
+
+func (c Config ) Freeze() API
+Freeze makes the configuration immutable.
+type DecimalLogicalSchema
+type DecimalLogicalSchema struct { // contains filtered or unexported fields }
+DecimalLogicalSchema is a decimal logical type.
+
+func NewDecimalLogicalSchema
+
+func NewDecimalLogicalSchema(prec, scale int ) * DecimalLogicalSchema
+NewDecimalLogicalSchema creates a new decimal logical schema instance.
+
+func (*DecimalLogicalSchema) Precision
+
+func (s * DecimalLogicalSchema ) Precision() int
+Precision returns the precision of the decimal logical schema.
+
+func (*DecimalLogicalSchema) Scale
+
+func (s * DecimalLogicalSchema ) Scale() int
+Scale returns the scale of the decimal logical schema.
+
+func (*DecimalLogicalSchema) String
+
+func (s * DecimalLogicalSchema ) String() string
+String returns the canonical form of the logical schema.
+
+func (*DecimalLogicalSchema) Type
+
+func (s * DecimalLogicalSchema ) Type() LogicalType
+Type returns the type of the logical schema.
+type Decoder
+type Decoder struct { // contains filtered or unexported fields }
+Decoder reads and decodes Avro values from an input stream.
+
+func NewDecoder
+
+func NewDecoder(s string , r io . Reader ) (* Decoder , error )
+NewDecoder returns a new decoder that reads from reader r using schema s.   Example
+schema := `{
+"type": "record",
+"name": "simple",
+"namespace": "org.hamba.avro",
+"fields" : [
+{"name": "a", "type": "long"},
+{"name": "b", "type": "string"}
+]
+}`
+
+type SimpleRecord struct {
+A int64  `avro:"a"`
+B string `avro:"b"`
+}
+
+r := bytes.NewReader([]byte{}) // Your reader goes here
+decoder, err := avro.NewDecoder(schema, r)
+if err != nil {
+fmt.Println("error:", err)
+}
+
+simple := SimpleRecord{}
+if err := decoder.Decode(&simple); err != nil {
+fmt.Println("error:", err)
+}
+
+fmt.Printf("%+v", simple)  Output:
+
+func NewDecoderForSchema
+
+func NewDecoderForSchema(schema Schema , reader io . Reader ) * Decoder
+NewDecoderForSchema returns a new decoder that reads from r using schema.   Example
+schema := avro.MustParse(`{
+"type": "record",
+"name": "simple",
+"namespace": "org.hamba.avro",
+"fields" : [
+{"name": "a", "type": "long"},
+{"name": "b", "type": "string"}
+]
+}`)
+
+type SimpleRecord struct {
+A int64  `avro:"a"`
+B string `avro:"b"`
+}
+
+r := bytes.NewReader([]byte{0x36, 0x06, 0x66, 0x6F, 0x6F}) // Your reader goes here
+decoder := avro.NewDecoderForSchema(schema, r)
+
+simple := SimpleRecord{}
+if err := decoder.Decode(&simple); err != nil {
+fmt.Println("error:", err)
+}
+
+fmt.Printf("%+v", simple)  Output:  {A:27 B:foo}
+
+func (*Decoder) Decode
+
+func (d * Decoder ) Decode(obj any ) error
+Decode reads the next Avro encoded value from its input and stores it in the value pointed to by v.
+type Encoder
+type Encoder struct { // contains filtered or unexported fields }
+Encoder writes Avro values to an output stream.
+
+func NewEncoder
+
+func NewEncoder(s string , w io . Writer ) (* Encoder , error )
+NewEncoder returns a new encoder that writes to w using schema s.   Example
+schema := `{
+"type": "record",
+"name": "simple",
+"namespace": "org.hamba.avro",
+"fields" : [
+{"name": "a", "type": "long"},
+{"name": "b", "type": "string"}
+]
+}`
+
+type SimpleRecord struct {
+A int64  `avro:"a"`
+B string `avro:"b"`
+}
+
+w := &bytes.Buffer{}
+encoder, err := avro.NewEncoder(schema, w)
+if err != nil {
+fmt.Println("error:", err)
+}
+
+simple := SimpleRecord{A: 27, B: "foo"}
+if err := encoder.Encode(simple); err != nil {
+fmt.Println("error:", err)
+}
+
+fmt.Println(w.Bytes())  Output:  [54 6 102 111 111]
+
+func NewEncoderForSchema
+
+func NewEncoderForSchema(schema Schema , w io . Writer ) * Encoder
+NewEncoderForSchema returns a new encoder that writes to w using schema.   Example
+schema := avro.MustParse(`{
+"type": "record",
+"name": "simple",
+"namespace": "org.hamba.avro",
+"fields" : [
+{"name": "a", "type": "long"},
+{"name": "b", "type": "string"}
+]
+}`)
+
+type SimpleRecord struct {
+A int64  `avro:"a"`
+B string `avro:"b"`
+}
+
+w := &bytes.Buffer{}
+encoder := avro.NewEncoderForSchema(schema, w)
+
+simple := SimpleRecord{A: 27, B: "foo"}
+if err := encoder.Encode(simple); err != nil {
+fmt.Println("error:", err)
+}
+
+fmt.Println(w.Bytes())  Output:  [54 6 102 111 111]
+
+func (*Encoder) Encode
+
+func (e * Encoder ) Encode(v any ) error
+Encode writes the Avro encoding of v to the stream.
+type EnumSchema
+type EnumSchema struct { // contains filtered or unexported fields }
+EnumSchema is an Avro enum type schema.
+
+func NewEnumSchema
+
+func NewEnumSchema(name, namespace string , symbols [] string , opts ... SchemaOption ) (* EnumSchema , error )
+NewEnumSchema creates a new enum schema instance.
+
+func (EnumSchema) Aliases
+
+func (n EnumSchema) Aliases() [] string
+Aliases returns the fully qualified aliases of a schema.
+
+func (*EnumSchema) Default
+
+func (s * EnumSchema ) Default() string
+Default returns the default of an enum or an empty string.
+
+func (*EnumSchema) Doc
+
+func (s * EnumSchema ) Doc() string
+Doc returns the schema doc.
+
+func (*EnumSchema) Fingerprint
+
+func (s * EnumSchema ) Fingerprint() [32] byte
+Fingerprint returns the SHA256 fingerprint of the schema.
+
+func (*EnumSchema) FingerprintUsing
+
+func (s * EnumSchema ) FingerprintUsing(typ FingerprintType ) ([] byte , error )
+FingerprintUsing returns the fingerprint of the schema using the given algorithm or an error.
+
+func (EnumSchema) FullName
+
+func (n EnumSchema) FullName() string
+FullName returns the fully qualified name of a schema.
+
+func (*EnumSchema) MarshalJSON
+
+func (s * EnumSchema ) MarshalJSON() ([] byte , error )
+MarshalJSON marshals the schema to json.
+
+func (EnumSchema) Name
+
+func (n EnumSchema) Name() string
+Name returns the name of a schema.
+
+func (EnumSchema) Namespace
+
+func (n EnumSchema) Namespace() string
+Namespace returns the namespace of a schema.
+
+func (EnumSchema) Prop
+
+func (p EnumSchema) Prop(name string ) any
+Prop gets a property from the schema.
+
+func (*EnumSchema) String
+
+func (s * EnumSchema ) String() string
+String returns the canonical form of the schema.
+
+func (*EnumSchema) Symbols
+
+func (s * EnumSchema ) Symbols() [] string
+Symbols returns the symbols of an enum.
+
+func (*EnumSchema) Type
+
+func (s * EnumSchema ) Type() Type
+Type returns the type of the schema.
+type Field
+type Field struct { // contains filtered or unexported fields }
+Field is an Avro record type field.
+
+func NewField
+
+func NewField(name string , typ Schema , opts ... SchemaOption ) (* Field , error )
+NewField creates a new field instance.
+
+func (*Field) Aliases
+
+func (f * Field ) Aliases() [] string
+Aliases return the field aliases.
+
+func (*Field) Default
+
+func (f * Field ) Default() any
+Default returns the default of a field or nil.
+The only time a nil default is valid is for a Null Type.
+
+func (*Field) Doc
+
+func (f * Field ) Doc() string
+Doc returns the documentation of a field.
+
+func (*Field) HasDefault
+
+func (f * Field ) HasDefault() bool
+HasDefault determines if the field has a default value.
+
+func (*Field) MarshalJSON
+
+func (f * Field ) MarshalJSON() ([] byte , error )
+MarshalJSON marshals the schema to json.
+
+func (*Field) Name
+
+func (f * Field ) Name() string
+Name returns the name of a field.
+
+func (*Field) Order
+
+func (f * Field ) Order() Order
+Order returns the field order.
+
+func (Field) Prop
+
+func (p Field) Prop(name string ) any
+Prop gets a property from the schema.
+
+func (*Field) String
+
+func (f * Field ) String() string
+String returns the canonical form of a field.
+
+func (*Field) Type
+
+func (f * Field ) Type() Schema
+Type returns the schema of a field.
+type FingerprintType
+type FingerprintType string
+FingerprintType is a fingerprinting algorithm.
+
+const ( CRC64Avro FingerprintType = "CRC64-AVRO" MD5 FingerprintType = "MD5" SHA256 FingerprintType = "SHA256" )
+Fingerprint type constants.
+type FixedSchema
+type FixedSchema struct { // contains filtered or unexported fields }
+FixedSchema is an Avro fixed type schema.
+
+func NewFixedSchema
+
+func NewFixedSchema(
+name, namespace string ,
+size int ,
+logical LogicalSchema ,
+opts ... SchemaOption ,
+) (* FixedSchema , error )
+NewFixedSchema creates a new fixed schema instance.
+
+func (FixedSchema) Aliases
+
+func (n FixedSchema) Aliases() [] string
+Aliases returns the fully qualified aliases of a schema.
+
+func (*FixedSchema) Fingerprint
+
+func (s * FixedSchema ) Fingerprint() [32] byte
+Fingerprint returns the SHA256 fingerprint of the schema.
+
+func (*FixedSchema) FingerprintUsing
+
+func (s * FixedSchema ) FingerprintUsing(typ FingerprintType ) ([] byte , error )
+FingerprintUsing returns the fingerprint of the schema using the given algorithm or an error.
+
+func (FixedSchema) FullName
+
+func (n FixedSchema) FullName() string
+FullName returns the fully qualified name of a schema.
+
+func (*FixedSchema) Logical
+
+func (s * FixedSchema ) Logical() LogicalSchema
+Logical returns the logical schema or nil.
+
+func (*FixedSchema) MarshalJSON
+
+func (s * FixedSchema ) MarshalJSON() ([] byte , error )
+MarshalJSON marshals the schema to json.
+
+func (FixedSchema) Name
+
+func (n FixedSchema) Name() string
+Name returns the name of a schema.
+
+func (FixedSchema) Namespace
+
+func (n FixedSchema) Namespace() string
+Namespace returns the namespace of a schema.
+
+func (FixedSchema) Prop
+
+func (p FixedSchema) Prop(name string ) any
+Prop gets a property from the schema.
+
+func (*FixedSchema) Size
+
+func (s * FixedSchema ) Size() int
+Size returns the number of bytes of the fixed schema.
+
+func (*FixedSchema) String
+
+func (s * FixedSchema ) String() string
+String returns the canonical form of the schema.
+
+func (*FixedSchema) Type
+
+func (s * FixedSchema ) Type() Type
+Type returns the type of the schema.
+type LogicalDuration    added in  v2.5.0
+type LogicalDuration struct { Months uint32  Days uint32  Milliseconds uint32  }
+LogicalDuration represents the `duration` logical type, as defined in https://avro.apache.org/docs/1.11.1/specification/#duration
+type LogicalSchema
+type LogicalSchema interface {  // Type returns the type of the logical schema.  Type() LogicalType   // String returns the canonical form of the logical schema.  String() string }
+LogicalSchema represents an Avro schema with a logical type.
+type LogicalType
+type LogicalType string
+LogicalType is a schema logical type.
+
+const ( Decimal LogicalType = "decimal" UUID LogicalType = "uuid" Date LogicalType = "date" TimeMillis LogicalType = "time-millis" TimeMicros LogicalType = "time-micros" TimestampMillis LogicalType = "timestamp-millis" TimestampMicros LogicalType = "timestamp-micros" Duration LogicalType = "duration" )
+Schema logical type constants.
+type LogicalTypeSchema
+type LogicalTypeSchema interface {  // Logical returns the logical schema or nil.  Logical() LogicalSchema }
+LogicalTypeSchema represents a schema that can contain a logical type.
+type MapSchema
+type MapSchema struct { // contains filtered or unexported fields }
+MapSchema is an Avro map type schema.
+
+func NewMapSchema
+
+func NewMapSchema(values Schema , opts ... SchemaOption ) * MapSchema
+NewMapSchema creates a map schema instance.
+
+func (*MapSchema) Fingerprint
+
+func (s * MapSchema ) Fingerprint() [32] byte
+Fingerprint returns the SHA256 fingerprint of the schema.
+
+func (*MapSchema) FingerprintUsing
+
+func (s * MapSchema ) FingerprintUsing(typ FingerprintType ) ([] byte , error )
+FingerprintUsing returns the fingerprint of the schema using the given algorithm or an error.
+
+func (*MapSchema) MarshalJSON
+
+func (s * MapSchema ) MarshalJSON() ([] byte , error )
+MarshalJSON marshals the schema to json.
+
+func (MapSchema) Prop
+
+func (p MapSchema) Prop(name string ) any
+Prop gets a property from the schema.
+
+func (*MapSchema) String
+
+func (s * MapSchema ) String() string
+String returns the canonical form of the schema.
+
+func (*MapSchema) Type
+
+func (s * MapSchema ) Type() Type
+Type returns the type of the schema.
+
+func (*MapSchema) Values
+
+func (s * MapSchema ) Values() Schema
+Values returns the values schema of a map.
+type Message
+type Message struct { // contains filtered or unexported fields }
+Message is an Avro protocol message.
+
+func NewMessage
+
+func NewMessage(req * RecordSchema , resp Schema , errors * UnionSchema , oneWay bool , opts ... ProtocolOption ) * Message
+NewMessage creates a protocol message instance.
+
+func (*Message) Doc
+
+func (m * Message ) Doc() string
+Doc returns the message doc.
+
+func (*Message) Errors
+
+func (m * Message ) Errors() * UnionSchema
+Errors returns the message errors union schema.
+
+func (*Message) OneWay
+
+func (m * Message ) OneWay() bool
+OneWay determines of the message is a one way message.
+
+func (Message) Prop
+
+func (p Message) Prop(name string ) any
+Prop gets a property from the schema.
+
+func (*Message) Request
+
+func (m * Message ) Request() * RecordSchema
+Request returns the message request schema.
+
+func (*Message) Response
+
+func (m * Message ) Response() Schema
+Response returns the message response schema.
+
+func (*Message) String
+
+func (m * Message ) String() string
+String returns the canonical form of the message.
+type NamedSchema
+type NamedSchema interface { Schema  PropertySchema   // Name returns the name of the schema.  Name() string   // Namespace returns the namespace of a schema.  Namespace() string   // FullName returns the full qualified name of a schema.  FullName() string }
+NamedSchema represents a schema with a name.
+type NullSchema
+type NullSchema struct { // contains filtered or unexported fields }
+NullSchema is an Avro null type schema.
+
+func (*NullSchema) Fingerprint
+
+func (s * NullSchema ) Fingerprint() [32] byte
+Fingerprint returns the SHA256 fingerprint of the schema.
+
+func (*NullSchema) FingerprintUsing
+
+func (s * NullSchema ) FingerprintUsing(typ FingerprintType ) ([] byte , error )
+FingerprintUsing returns the fingerprint of the schema using the given algorithm or an error.
+
+func (*NullSchema) MarshalJSON
+
+func (s * NullSchema ) MarshalJSON() ([] byte , error )
+MarshalJSON marshals the schema to json.
+
+func (*NullSchema) String
+
+func (s * NullSchema ) String() string
+String returns the canonical form of the schema.
+
+func (*NullSchema) Type
+
+func (s * NullSchema ) Type() Type
+Type returns the type of the schema.
+type Order
+type Order string
+Order is a field order.
+
+const ( Asc Order = "ascending" Desc Order = "descending" Ignore Order = "ignore" )
+Field orders.
+type PrimitiveLogicalSchema
+type PrimitiveLogicalSchema struct { // contains filtered or unexported fields }
+PrimitiveLogicalSchema is a logical type with no properties.
+
+func NewPrimitiveLogicalSchema
+
+func NewPrimitiveLogicalSchema(typ LogicalType ) * PrimitiveLogicalSchema
+NewPrimitiveLogicalSchema creates a new primitive logical schema instance.
+
+func (*PrimitiveLogicalSchema) String
+
+func (s * PrimitiveLogicalSchema ) String() string
+String returns the canonical form of the logical schema.
+
+func (*PrimitiveLogicalSchema) Type
+
+func (s * PrimitiveLogicalSchema ) Type() LogicalType
+Type returns the type of the logical schema.
+type PrimitiveSchema
+type PrimitiveSchema struct { // contains filtered or unexported fields }
+PrimitiveSchema is an Avro primitive type schema.
+
+func NewPrimitiveSchema
+
+func NewPrimitiveSchema(t Type , l LogicalSchema , opts ... SchemaOption ) * PrimitiveSchema
+NewPrimitiveSchema creates a new PrimitiveSchema.
+
+func (*PrimitiveSchema) Fingerprint
+
+func (s * PrimitiveSchema ) Fingerprint() [32] byte
+Fingerprint returns the SHA256 fingerprint of the schema.
+
+func (*PrimitiveSchema) FingerprintUsing
+
+func (s * PrimitiveSchema ) FingerprintUsing(typ FingerprintType ) ([] byte , error )
+FingerprintUsing returns the fingerprint of the schema using the given algorithm or an error.
+
+func (*PrimitiveSchema) Logical
+
+func (s * PrimitiveSchema ) Logical() LogicalSchema
+Logical returns the logical schema or nil.
+
+func (*PrimitiveSchema) MarshalJSON
+
+func (s * PrimitiveSchema ) MarshalJSON() ([] byte , error )
+MarshalJSON marshals the schema to json.
+
+func (PrimitiveSchema) Prop
+
+func (p PrimitiveSchema) Prop(name string ) any
+Prop gets a property from the schema.
+
+func (*PrimitiveSchema) String
+
+func (s * PrimitiveSchema ) String() string
+String returns the canonical form of the schema.
+
+func (*PrimitiveSchema) Type
+
+func (s * PrimitiveSchema ) Type() Type
+Type returns the type of the schema.
+type PropertySchema
+type PropertySchema interface {  // Prop gets a property from the schema.  Prop( string ) any }
+PropertySchema represents a schema with properties.
+type Protocol
+type Protocol struct { // contains filtered or unexported fields }
+Protocol is an Avro protocol.
+
+func MustParseProtocol
+
+func MustParseProtocol(protocol string ) * Protocol
+MustParseProtocol parses an Avro protocol, panicing if there is an error.
+
+func NewProtocol
+
+func NewProtocol(
+name, namepsace string ,
+types [] NamedSchema ,
+messages map[ string ]* Message ,
+opts ... ProtocolOption ,
+) (* Protocol , error )
+NewProtocol creates a protocol instance.
+
+func ParseProtocol
+
+func ParseProtocol(protocol string ) (* Protocol , error )
+ParseProtocol parses an Avro protocol.
+
+func ParseProtocolFile
+
+func ParseProtocolFile(path string ) (* Protocol , error )
+ParseProtocolFile parses an Avro protocol from a file.
+
+func (Protocol) Aliases
+
+func (n Protocol) Aliases() [] string
+Aliases returns the fully qualified aliases of a schema.
+
+func (*Protocol) Doc
+
+func (p * Protocol ) Doc() string
+Doc returns the protocol doc.
+
+func (Protocol) FullName
+
+func (n Protocol) FullName() string
+FullName returns the fully qualified name of a schema.
+
+func (*Protocol) Hash
+
+func (p * Protocol ) Hash() string
+Hash returns the MD5 hash of the protocol.
+
+func (*Protocol) Message
+
+func (p * Protocol ) Message(name string ) * Message
+Message returns a message with the given name or nil.
+
+func (Protocol) Name
+
+func (n Protocol) Name() string
+Name returns the name of a schema.
+
+func (Protocol) Namespace
+
+func (n Protocol) Namespace() string
+Namespace returns the namespace of a schema.
+
+func (Protocol) Prop
+
+func (p Protocol) Prop(name string ) any
+Prop gets a property from the schema.
+
+func (*Protocol) String
+
+func (p * Protocol ) String() string
+String returns the canonical form of the protocol.
+
+func (*Protocol) Types    added in  v2.17.0
+
+func (p * Protocol ) Types() [] NamedSchema
+Types returns the types of the protocol.
+type ProtocolOption
+type ProtocolOption func(*protocolConfig)
+ProtocolOption is a function that sets a protocol option.
+
+func WithProtoDoc
+
+func WithProtoDoc(doc string ) ProtocolOption
+WithProtoDoc sets the doc on a protocol.
+
+func WithProtoProps
+
+func WithProtoProps(props map[ string ] any ) ProtocolOption
+WithProtoProps sets the properties on a protocol.
+type Reader
+type Reader struct { Error error   // contains filtered or unexported fields }
+Reader is an Avro specific io.Reader.
+
+func NewReader
+
+func NewReader(r io . Reader , bufSize int , opts ... ReaderFunc ) * Reader
+NewReader creates a new Reader.
+
+func (*Reader) Read
+
+func (r * Reader ) Read(b [] byte )
+Read reads data into the given bytes.
+
+func (*Reader) ReadArrayCB
+
+func (r * Reader ) ReadArrayCB(fn func(* Reader ) bool )
+ReadArrayCB reads an array with a callback per item.
+
+func (*Reader) ReadBlockHeader
+
+func (r * Reader ) ReadBlockHeader() ( int64 , int64 )
+ReadBlockHeader reads a Block Header from the Reader.
+
+func (*Reader) ReadBool
+
+func (r * Reader ) ReadBool() bool
+ReadBool reads a Bool from the Reader.
+
+func (*Reader) ReadBytes
+
+func (r * Reader ) ReadBytes() [] byte
+ReadBytes reads Bytes from the Reader.
+
+func (*Reader) ReadDouble
+
+func (r * Reader ) ReadDouble() float64
+ReadDouble reads a Double from the Reader.
+
+func (*Reader) ReadFloat
+
+func (r * Reader ) ReadFloat() float32
+ReadFloat reads a Float from the Reader.
+
+func (*Reader) ReadInt
+
+func (r * Reader ) ReadInt() int32
+ReadInt reads an Int from the Reader.
+
+func (*Reader) ReadLong
+
+func (r * Reader ) ReadLong() int64
+ReadLong reads a Long from the Reader.
+
+func (*Reader) ReadMapCB
+
+func (r * Reader ) ReadMapCB(fn func(* Reader , string ) bool )
+ReadMapCB reads an array with a callback per item.
+
+func (*Reader) ReadNext
+
+func (r * Reader ) ReadNext(schema Schema ) any
+ReadNext reads the next Avro element as a generic interface.
+
+func (*Reader) ReadString
+
+func (r * Reader ) ReadString() string
+ReadString reads a String from the Reader.
+
+func (*Reader) ReadVal
+
+func (r * Reader ) ReadVal(schema Schema , obj any )
+ReadVal parses Avro value and stores the result in the value pointed to by obj.
+
+func (*Reader) ReportError
+
+func (r * Reader ) ReportError(operation, msg string )
+ReportError record a error in iterator instance with current position.
+
+func (*Reader) Reset
+
+func (r * Reader ) Reset(b [] byte ) * Reader
+Reset resets a Reader with a new byte array attached.
+
+func (*Reader) SkipBool
+
+func (r * Reader ) SkipBool()
+SkipBool skips a Bool in the reader.
+
+func (*Reader) SkipBytes
+
+func (r * Reader ) SkipBytes()
+SkipBytes skips Bytes in the reader.
+
+func (*Reader) SkipDouble
+
+func (r * Reader ) SkipDouble()
+SkipDouble skips a Double in the reader.
+
+func (*Reader) SkipFloat
+
+func (r * Reader ) SkipFloat()
+SkipFloat skips a Float in the reader.
+
+func (*Reader) SkipInt
+
+func (r * Reader ) SkipInt()
+SkipInt skips an Int in the reader.
+
+func (*Reader) SkipLong
+
+func (r * Reader ) SkipLong()
+SkipLong skips a Long in the reader.
+
+func (*Reader) SkipNBytes
+
+func (r * Reader ) SkipNBytes(n int )
+SkipNBytes skips the given number of bytes in the reader.
+
+func (*Reader) SkipString
+
+func (r * Reader ) SkipString()
+SkipString skips a String in the reader.
+type ReaderFunc
+type ReaderFunc func(r * Reader )
+ReaderFunc is a function used to customize the Reader.
+
+func WithReaderConfig
+
+func WithReaderConfig(cfg API ) ReaderFunc
+WithReaderConfig specifies the configuration to use with a reader.
+type RecordSchema
+type RecordSchema struct { // contains filtered or unexported fields }
+RecordSchema is an Avro record type schema.
+
+func NewErrorRecordSchema
+
+func NewErrorRecordSchema(name, namespace string , fields []* Field , opts ... SchemaOption ) (* RecordSchema , error )
+NewErrorRecordSchema creates a new error record schema instance.
+
+func NewRecordSchema
+
+func NewRecordSchema(name, namespace string , fields []* Field , opts ... SchemaOption ) (* RecordSchema , error )
+NewRecordSchema creates a new record schema instance.
+
+func (RecordSchema) Aliases
+
+func (n RecordSchema) Aliases() [] string
+Aliases returns the fully qualified aliases of a schema.
+
+func (*RecordSchema) Doc
+
+func (s * RecordSchema ) Doc() string
+Doc returns the documentation of a record.
+
+func (*RecordSchema) Fields
+
+func (s * RecordSchema ) Fields() []* Field
+Fields returns the fields of a record.
+
+func (*RecordSchema) Fingerprint
+
+func (s * RecordSchema ) Fingerprint() [32] byte
+Fingerprint returns the SHA256 fingerprint of the schema.
+
+func (*RecordSchema) FingerprintUsing
+
+func (s * RecordSchema ) FingerprintUsing(typ FingerprintType ) ([] byte , error )
+FingerprintUsing returns the fingerprint of the schema using the given algorithm or an error.
+
+func (RecordSchema) FullName
+
+func (n RecordSchema) FullName() string
+FullName returns the fully qualified name of a schema.
+
+func (*RecordSchema) IsError
+
+func (s * RecordSchema ) IsError() bool
+IsError determines is this is an error record.
+
+func (*RecordSchema) MarshalJSON
+
+func (s * RecordSchema ) MarshalJSON() ([] byte , error )
+MarshalJSON marshals the schema to json.
+
+func (RecordSchema) Name
+
+func (n RecordSchema) Name() string
+Name returns the name of a schema.
+
+func (RecordSchema) Namespace
+
+func (n RecordSchema) Namespace() string
+Namespace returns the namespace of a schema.
+
+func (RecordSchema) Prop
+
+func (p RecordSchema) Prop(name string ) any
+Prop gets a property from the schema.
+
+func (*RecordSchema) String
+
+func (s * RecordSchema ) String() string
+String returns the canonical form of the schema.
+
+func (*RecordSchema) Type
+
+func (s * RecordSchema ) Type() Type
+Type returns the type of the schema.
+type RefSchema
+type RefSchema struct { // contains filtered or unexported fields }
+RefSchema is a reference to a named Avro schema.
+
+func NewRefSchema
+
+func NewRefSchema(schema NamedSchema ) * RefSchema
+NewRefSchema creates a ref schema instance.
+
+func (*RefSchema) Fingerprint
+
+func (s * RefSchema ) Fingerprint() [32] byte
+Fingerprint returns the SHA256 fingerprint of the schema.
+
+func (*RefSchema) FingerprintUsing
+
+func (s * RefSchema ) FingerprintUsing(typ FingerprintType ) ([] byte , error )
+FingerprintUsing returns the fingerprint of the schema using the given algorithm or an error.
+
+func (*RefSchema) MarshalJSON
+
+func (s * RefSchema ) MarshalJSON() ([] byte , error )
+MarshalJSON marshals the schema to json.
+
+func (*RefSchema) Schema
+
+func (s * RefSchema ) Schema() NamedSchema
+Schema returns the schema being referenced.
+
+func (*RefSchema) String
+
+func (s * RefSchema ) String() string
+String returns the canonical form of the schema.
+
+func (*RefSchema) Type
+
+func (s * RefSchema ) Type() Type
+Type returns the type of the schema.
+type Schema
+type Schema interface {  // Type returns the type of the schema.  Type() Type   // String returns the canonical form of the schema.  String() string   // Fingerprint returns the SHA256 fingerprint of the schema.  Fingerprint() [32] byte   // FingerprintUsing returns the fingerprint of the schema using the given algorithm or an error.  FingerprintUsing( FingerprintType ) ([] byte , error )
+}
+Schema represents an Avro schema.
+
+func MustParse
+
+func MustParse(schema string ) Schema
+MustParse parses a schema string, panicing if there is an error.
+
+func Parse
+
+func Parse(schema string ) ( Schema , error )
+Parse parses a schema string.   Example
+schema, err := avro.Parse(`{
+"type": "record",
+"name": "simple",
+"namespace": "org.hamba.avro",
+"fields" : [
+{"name": "a", "type": "long"},
+{"name": "b", "type": "string"}
+]
+}`)
+if err != nil {
+log.Fatal(err)
+}
+
+fmt.Println(schema.Type())
+// Outputs: record  Output:
+
+func ParseBytes    added in  v2.12.0
+
+func ParseBytes(schema [] byte ) ( Schema , error )
+ParseBytes parses a schema byte slice.
+
+func ParseBytesWithCache    added in  v2.12.0
+
+func ParseBytesWithCache(schema [] byte , namespace string , cache * SchemaCache ) ( Schema , error )
+ParseBytesWithCache parses a schema byte slice using the given namespace and schema cache.
+
+func ParseFiles
+
+func ParseFiles(paths ... string ) ( Schema , error )
+ParseFiles parses the schemas in the files, in the order they appear, returning the last schema.
+This is useful when your schemas rely on other schemas.
+
+func ParseWithCache
+
+func ParseWithCache(schema, namespace string , cache * SchemaCache ) ( Schema , error )
+ParseWithCache parses a schema string using the given namespace and schema cache.
+type SchemaCache
+type SchemaCache struct { // contains filtered or unexported fields }
+SchemaCache is a cache of schemas.
+
+func (*SchemaCache) Add
+
+func (c * SchemaCache ) Add(name string , schema Schema )
+Add adds a schema to the cache with the given name.
+
+func (*SchemaCache) Get
+
+func (c * SchemaCache ) Get(name string ) Schema
+Get returns the Schema if it exists.
+type SchemaCompatibility
+type SchemaCompatibility struct { // contains filtered or unexported fields }
+SchemaCompatibility determines the compatibility of schemas.
+
+func NewSchemaCompatibility
+
+func NewSchemaCompatibility() * SchemaCompatibility
+NewSchemaCompatibility creates a new schema compatibility instance.
+
+func (*SchemaCompatibility) Compatible
+
+func (c * SchemaCompatibility ) Compatible(reader, writer Schema ) error
+Compatible determines the compatibility if the reader and writer schemas.
+type SchemaOption
+type SchemaOption func(*schemaConfig)
+SchemaOption is a function that sets a schema option.
+
+func WithAliases
+
+func WithAliases(aliases [] string ) SchemaOption
+WithAliases sets the aliases on a schema.
+
+func WithDefault
+
+func WithDefault(def any ) SchemaOption
+WithDefault sets the default on a schema.
+
+func WithDoc
+
+func WithDoc(doc string ) SchemaOption
+WithDoc sets the doc on a schema.
+
+func WithOrder
+
+func WithOrder(order Order ) SchemaOption
+WithOrder sets the order on a schema.
+
+func WithProps
+
+func WithProps(props map[ string ] any ) SchemaOption
+WithProps sets the properties on a schema.
+type Schemas
+type Schemas [] Schema
+Schemas is a slice of Schemas.
+
+func (Schemas) Get
+
+func (s Schemas ) Get(name string ) ( Schema , int )
+Get gets a schema and position by type or name if it is a named schema.
+type Type
+type Type string
+Type is a schema type.
+
+const ( Record Type = "record" Error Type = "error" Ref Type = "<ref>" Enum Type = "enum" Array Type = "array" Map Type = "map" Union Type = "union" Fixed Type = "fixed" String Type = "string" Bytes Type = "bytes" Int Type = "int" Long Type = "long" Float Type = "float" Double Type = "double" Boolean Type = "boolean" Null Type = "null" )
+Schema type constants.
+type TypeResolver
+type TypeResolver struct { // contains filtered or unexported fields }
+TypeResolver resolves types by name.
+
+func NewTypeResolver
+
+func NewTypeResolver() * TypeResolver
+NewTypeResolver creates a new type resolver with all primitive types
+registered.
+
+func (*TypeResolver) Name
+
+func (r * TypeResolver ) Name(typ reflect2 . Type ) ([] string , error )
+Name gets the name for a type, or an error.
+
+func (*TypeResolver) Register
+
+func (r * TypeResolver ) Register(name string , obj any )
+Register registers names to their types for resolution.
+
+func (*TypeResolver) Type
+
+func (r * TypeResolver ) Type(name string ) ( reflect2 . Type , error )
+Type gets the type for a name, or an error.
+type UnionSchema
+type UnionSchema struct { // contains filtered or unexported fields }
+UnionSchema is an Avro union type schema.
+
+func NewUnionSchema
+
+func NewUnionSchema(types [] Schema ) (* UnionSchema , error )
+NewUnionSchema creates a union schema instance.
+
+func (*UnionSchema) Fingerprint
+
+func (s * UnionSchema ) Fingerprint() [32] byte
+Fingerprint returns the SHA256 fingerprint of the schema.
+
+func (*UnionSchema) FingerprintUsing
+
+func (s * UnionSchema ) FingerprintUsing(typ FingerprintType ) ([] byte , error )
+FingerprintUsing returns the fingerprint of the schema using the given algorithm or an error.
+
+func (*UnionSchema) Indices
+
+func (s * UnionSchema ) Indices() (null, typ int )
+Indices returns the index of the null and type schemas for a
+nullable schema. For non-nullable schemas 0 is returned for
+both.
+
+func (*UnionSchema) MarshalJSON
+
+func (s * UnionSchema ) MarshalJSON() ([] byte , error )
+MarshalJSON marshals the schema to json.
+
+func (*UnionSchema) Nullable
+
+func (s * UnionSchema ) Nullable() bool
+Nullable returns the Schema if the union is nullable, otherwise nil.
+
+func (*UnionSchema) String
+
+func (s * UnionSchema ) String() string
+String returns the canonical form of the schema.
+
+func (*UnionSchema) Type
+
+func (s * UnionSchema ) Type() Type
+Type returns the type of the schema.
+
+func (*UnionSchema) Types
+
+func (s * UnionSchema ) Types() Schemas
+Types returns the types of a union.
+type ValDecoder
+type ValDecoder interface { Decode(ptr unsafe . Pointer , r * Reader ) }
+ValDecoder represents an internal value decoder.
+You should never use ValDecoder directly.
+type ValEncoder
+type ValEncoder interface { Encode(ptr unsafe . Pointer , w * Writer ) }
+ValEncoder represents an internal value encoder.
+You should never use ValEncoder directly.
+type Writer
+type Writer struct { Error error   // contains filtered or unexported fields }
+Writer is an Avro specific io.Writer.
+
+func NewWriter
+
+func NewWriter(out io . Writer , bufSize int , opts ... WriterFunc ) * Writer
+NewWriter creates a new Writer.
+
+func (*Writer) Buffer
+
+func (w * Writer ) Buffer() [] byte
+Buffer gets the Writer buffer.
+
+func (*Writer) Buffered
+
+func (w * Writer ) Buffered() int
+Buffered returns the number of buffered bytes.
+
+func (*Writer) Flush
+
+func (w * Writer ) Flush() error
+Flush writes any buffered data to the underlying io.Writer.
+
+func (*Writer) Reset
+
+func (w * Writer ) Reset(out io . Writer )
+Reset resets the Writer with a new io.Writer attached.
+
+func (*Writer) Write
+
+func (w * Writer ) Write(b [] byte ) ( int , error )
+Write writes raw bytes to the Writer.
+
+func (*Writer) WriteBlockCB
+
+func (w * Writer ) WriteBlockCB(callback func(w * Writer ) int64 ) int64
+WriteBlockCB writes a block using the callback.
+
+func (*Writer) WriteBlockHeader
+
+func (w * Writer ) WriteBlockHeader(l, s int64 )
+WriteBlockHeader writes a Block Header to the Writer.
+
+func (*Writer) WriteBool
+
+func (w * Writer ) WriteBool(b bool )
+WriteBool writes a Bool to the Writer.
+
+func (*Writer) WriteBytes
+
+func (w * Writer ) WriteBytes(b [] byte )
+WriteBytes writes Bytes to the Writer.
+
+func (*Writer) WriteDouble
+
+func (w * Writer ) WriteDouble(f float64 )
+WriteDouble writes a Double to the Writer.
+
+func (*Writer) WriteFloat
+
+func (w * Writer ) WriteFloat(f float32 )
+WriteFloat writes a Float to the Writer.
+
+func (*Writer) WriteInt
+
+func (w * Writer ) WriteInt(i int32 )
+WriteInt writes an Int to the Writer.
+
+func (*Writer) WriteLong
+
+func (w * Writer ) WriteLong(i int64 )
+WriteLong writes a Long to the Writer.
+
+func (*Writer) WriteString
+
+func (w * Writer ) WriteString(s string )
+WriteString reads a String to the Writer.
+
+func (*Writer) WriteVal
+
+func (w * Writer ) WriteVal(schema Schema , val any )
+WriteVal writes the Avro encoding of obj.
+type WriterFunc
+type WriterFunc func(w * Writer )
+WriterFunc is a function used to customize the Writer.
+
+func WithWriterConfig
+
+func WithWriterConfig(cfg API ) WriterFunc
+WithWriterConfig specifies the configuration to use with a writer.
+Source Files
+View all Source files
+codec.go   codec_array.go   codec_dynamic.go   codec_enum.go   codec_fixed.go   codec_map.go   codec_marshaler.go   codec_native.go   codec_ptr.go   codec_record.go   codec_skip.go   codec_union.go   config.go   decoder.go   doc.go   encoder.go   noescape.go   protocol.go   reader.go   reader_generic.go   reader_skip.go   resolver.go   schema.go   schema_compatibility.go   schema_parse.go   schema_walk.go   types.go   writer.go
+Directories
+
+Show internal  Expand all      Path  Synopsis
+
+cmd
+avrogen
+
+avrosv
+
+
+gen
+Package gen allows generating Go structs from avro schemas.    Package gen allows generating Go structs from avro schemas.
+
+internal
+bytesx
+Package bytesx implements bytes extensions.    Package bytesx implements bytes extensions.
+
+ocf
+Package ocf implements encoding and decoding of Avro Object Container Files as defined by the Avro specification.    Package ocf implements encoding and decoding of Avro Object Container Files as defined by the Avro specification.
+
+pkg
+crc64
+Package crc64 implements the Avro CRC-64 checksum.    Package crc64 implements the Avro CRC-64 checksum.
+
+registry
+Package registry implements a Confluent Schema Registry compliant client.    Package registry implements a Confluent Schema Registry compliant client.
+Click to show internal directories.
+Click to hide internal directories.
+
+Why Go  Use Cases  Case Studies
+Get Started  Playground  Tour  Stack Overflow  Help
+Packages  Standard Library  Sub-repositories  About Go Packages
+About  Download  Blog  Issue Tracker  Release Notes  Brand Guidelines  Code of Conduct
+Connect  Twitter  GitHub  Slack  r/golang  Meetup  Golang Weekly
+Copyright    Terms of Service    Privacy Policy    Report an Issue
+Jump to
+
+
+
+Close
+Keyboard shortcuts
+? : This menu    / : Search site    f or F : Jump to    y or Y  : Canonical URL
+Close
+go.dev uses cookies from Google to deliver and enhance the quality of its services and to
+analyze traffic. Learn more.
+Okay   // this will throw if the querySelector can’t find the element
+const gtmId = document.querySelector('.js-gtmID').dataset.gtmid;
+if (!gtmId) {
+throw new Error('Google Tag Manager ID not found');
+}
+loadScript(`https://www.googletagmanager.com/gtm.js?id=${gtmId}`);
+
+loadScript('/static/frontend/unit/main/main.js')  loadScript('/static/frontend/unit/unit.js')

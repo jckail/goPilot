@@ -1,1 +1,4 @@
  ~/projects/helpersPrivate/goHelpers/run_getter.sh /home/ec2-user/projects/databus/gcr
+
+
+ ~/projects/helpersPrivate/goHelpers/run_getter.sh /home/ec2-user/projects/databus

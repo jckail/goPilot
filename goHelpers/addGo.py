@@ -5,12 +5,12 @@ import fnmatch
 
 
 class AssistantManager:
-    def __init__(self, apiKey, assistantName):
+    def __init__(self, apiKey, assistantName,outputdirectory):
         self.client = openai.OpenAI(api_key=apiKey)
         
         self.assistantName = assistantName
         self.my_assistant = self.fetchAssistant()
-        self.execPath = "/home/ec2-user/projects/helpersPrivate/goHelpers/"
+        self.execPath = outputdirectory
         print(self.execPath)
         self.uploadFiles = []
         self.promptPath = self.execPath+"prompt.txt"
@@ -67,9 +67,10 @@ class AssistantManager:
     def getAdditionalContext(self):
 
         context_files = []
-        for file in os.listdir(self.execPath):
+        addcontext = self.execPath + "additionalcontext/"
+        for file in os.listdir(addcontext):
             if fnmatch.fnmatch(file, '*_context.txt'):
-                context_files.append(os.path.join(self.execPath, file))
+                context_files.append(os.path.join(addcontext, file))
         return context_files
 
     def uploadFilestoAssistant(self,uploadFiles):
@@ -175,21 +176,22 @@ class AssistantManager:
         
 
     def copy_and_delete_file(self, source):
-
+        uploads = self.execPath + "uploads/"
+        print("\n",source,"\n")
+        print("\n",uploads,"\n")
         try:
             # Copy the source file to the destination path
-            uploads = self.execPath + "uploads/"
             shutil.copy(source, uploads)
-            print(f"File {source} copied to {uploads} successfully.")
+            print(f"{source} copied to {uploads} successfully.")
             
             check = os.path.basename(source)
             # Check if the file exists at the destination path before deleting
             if os.path.isfile(uploads+check) and source not in self.additionalContext and source != self.promptPath:
                 # Remove the source file
                 os.remove(source)
-                print(f"File {source} has been deleted.")
+                print(f"{source} has been deleted.")
             else:
-                print(f"Failed to copy: {uploads} does not exist after copying.")
+                print(f"Did not copy: {uploads} does not exist after copying.")
                 
         except FileNotFoundError:
             print("The source file does not exist.")
