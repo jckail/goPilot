@@ -1,271 +1,772 @@
-logging/telemetrylogger_init.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
-package logging
+databusoptions.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+package databus
+
+import (
+	"fmt"
+	"log"
+
+	"gitlab.com/prove-identity/data_platform/databus/gcr"
+	"gitlab.com/prove-identity/data_platform/databus/serde"
+)
+
+// ClientOption is a function that modifies the client.
+type ClientOption func(*Client) error
+
+// OverrideAppConfig is a ClientOption that overrides the default app config location.
+func OverrideAppConfig(fName string) ClientOption {
+	return func(c *Client) error {
+		c.ClientOptions.Overrides.AppConfigOverrides.ConfigPathOverride = gcr.ConfigPathOverride(fName)
+
+		return nil
+	}
+}
+
+// OverrideSchemaConfig is a ClientOption that overrides the default schema config location.
+func OverrideSchemaConfig(fName string) ClientOption {
+	return func(c *Client) error {
+		c.ClientOptions.Overrides.SchemaConfigOverrides.ConfigPathOverride = gcr.ConfigPathOverride(fName)
+
+		return nil
+	}
+}
+
+// OverrideDatabusConfig is a ClientOption that overrides the default databus config location.
+func OverrideDatabusConfig(fName string) ClientOption {
+	return func(c *Client) error {
+		c.ClientOptions.Overrides.DatabusConfigOverrides.ConfigPathOverride = gcr.ConfigPathOverride(fName)
+
+		return nil
+	}
+}
+
+// OverrideTelemetryConfig is a ClientOption that overrides the default telemetry config location.
+func OverrideTelemetryConfig(fName string) ClientOption {
+	return func(c *Client) error {
+		c.ClientOptions.Overrides.TelemetryConfigOverrides.ConfigPathOverride = gcr.ConfigPathOverride(fName)
+
+		return nil
+	}
+}
+
+// PrintBrokerInfo prints desired fields from the client.
+func PrintBrokerInfo(boolean bool) ClientOption {
+	return func(c *Client) error {
+		c.ClientOptions.printBrokerInfo = boolean
+
+		return nil
+	}
+}
+
+// CreateTestTopic creates a test topic for the client.
+func CreateTestTopic(boolean bool) ClientOption {
+	return func(c *Client) error {
+		c.ClientOptions.createTestTopic = boolean
+
+		return nil
+	}
+}
+
+// //InitClientOptions type ClientOverrides struct{}.
+func initClientOptions() *ClientOptions {
+	return &ClientOptions{
+		printBrokerInfo: false,
+		createTestTopic: false,
+		Overrides:       gcr.InitOverrides(),
+	}
+}
+
+type clientValidations struct {
+	InitGcr           bool
+	initSerde         bool
+	DatabusConnection bool
+	DatabusPublisher  bool
+	DatabusSubscriber bool
+}
+
+func (cv *clientValidations) Print() {
+	log.Println(" \n ")
+	log.Printf("Client Validations:\n")
+	log.Printf("InitGcr: %v\n", cv.InitGcr)
+	log.Printf("initSerde: %v\n", cv.initSerde)
+	log.Printf("DatabusConnection: %v\n", cv.DatabusConnection)
+	log.Printf("DatabusPublisher: %v\n", cv.DatabusPublisher)
+	log.Printf("DatabusSubscriber: %v\n", cv.DatabusSubscriber)
+	log.Println(" \n ")
+}
+
+func initClientValidations() *clientValidations {
+	return &clientValidations{
+		InitGcr:           false,
+		initSerde:         false,
+		DatabusConnection: false,
+		DatabusPublisher:  false,
+		DatabusSubscriber: false,
+	}
+}
+
+// ClientOptions is a struct that contains all the optional overrides for the c.
+type ClientOptions struct {
+	printBrokerInfo bool
+	createTestTopic bool
+	Overrides       *gcr.Overrides
+}
+
+// Print method for ClientOptions.
+func (c *ClientOptions) Print() {
+	log.Printf("ClientOptions:\n")
+
+	if c.Overrides != nil {
+		c.Overrides.Print()
+	} else {
+		log.Printf("  Overrides: nil\n")
+	}
+}
+
+func (c *Client) parseOpts(opts ...ClientOption) error {
+	for _, opt := range opts {
+		if err := opt(c); err != nil {
+			return fmt.Errorf("databus.go : initClient: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (c *Client) initSerde() error {
+	globalSerde, err := serde.NewGlobalSerde(c.Schema)
+
+	c.globalSerde = globalSerde
+
+	if err != nil {
+		return fmt.Errorf("initClient: initSerde: failed %w", err)
+	}
+
+	c.Validations.initSerde = true
+
+	return nil
+}
+
+// Print method for Client.
+func (c *Client) Print() {
+	log.Printf("Client Details:\n")
+	log.Printf("  Name: %s\n", c.Name)
+	log.Printf("  Version: %s\n", c.Version)
+	c.ClientOptions.Print()
+}
+
+func (c *Client) fetchGcr() error {
+	config, err := gcr.InitGcr(c.Name, c.Version,
+		c.ClientEnv, c.ClientOptions.Overrides)
+	if err != nil {
+		return fmt.Errorf("gcr.InitClient: %w", err)
+	}
+
+	c.App = config.AppConfig
+	c.Schema = config.SchemaConfig
+	c.Databus = config.DatabusConfig
+	c.Validations.InitGcr = true
+
+	return nil
+}
+
+// validateClient validates that the client has properly been intialized for Produce/Consume calls.
+func (c *Client) validateClient() error {
+	if !c.Validations.InitGcr {
+		return ErrUninitializedClient
+	}
+
+	if !c.Validations.initSerde {
+		return ErrInvalidSerde
+	}
+
+	if !c.Validations.DatabusConnection {
+		return ErrUninitializedClient
+	}
+
+	return nil
+}
+
+// validateConnection validates that the connection is valid and that required topic exists.
+func (c *Client) validateConnection() error {
+	switch c.Databus.BusType {
+	case gcr.Kafka:
+		c.Validations.DatabusConnection = true
+
+		return c.validateKafkaConnection()
+	case gcr.Mock:
+		c.Validations.DatabusConnection = true
+
+		return nil
+	default:
+		return fmt.Errorf("validateConnection: invalid bus type! %w", ErrInvalidDatabusType)
+	}
+}
+databus.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+// Package databus contains the primary interface for interacting with the databus
+package databus
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"time"
+
+	"gitlab.com/prove-identity/data_platform/databus/gcr"
+	"gitlab.com/prove-identity/data_platform/databus/serde"
+)
+
+const schemaVersionHeaderKey = "schema-version"
+
+// Client is the primary interface for interacting with the databus.
+type Client struct {
+	Name          string
+	Version       string
+	ClientOptions *ClientOptions
+	ClientEnv     string
+	publisher     iPublisher
+	subscriber    iSubscriber
+	App           *gcr.AppConfig
+	Schema        *gcr.SchemaConfig
+	Databus       *gcr.DatabusConfig
+	globalSerde   *serde.GlobalSerde
+	Validations   *clientValidations
+}
+
+// InitClient is the primary function to initialize a client.
+func createClient(schemaName string, schemaVersion string, opts ...ClientOption) (*Client, error) {
+	var err error
+
+	var exists bool
+
+	c := &Client{
+		Name:          schemaName,
+		Version:       schemaVersion,
+		ClientOptions: initClientOptions(),
+		Validations:   initClientValidations(),
+	}
+	c.ClientEnv, exists = os.LookupEnv("databusenv")
+
+	if !exists {
+		c.ClientEnv = "dev"
+	}
+
+	err = c.parseOpts(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("parseOpts Failed: %w", err)
+	}
+
+	return c, nil
+}
+
+// InitClient is the primary function to initialize a client.
+func InitClient(schemaName string, schemaVersion string, opts ...ClientOption) (*Client, error) {
+	c, err := createClient(schemaName, schemaVersion, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("create Client Failed: %w", err)
+	}
+
+	if err := c.fetchGcr(); err != nil {
+		return nil, err
+	}
+
+	if err := c.initSerde(); err != nil {
+		return nil, err
+	}
+
+	if err := c.validateConnection(); err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+// Publish a set of events to the data bus.
+// The events will be validated against the configured schema.
+func (c *Client) Publish(batch ...any) error {
+	err := c.validateClient()
+	if err != nil {
+		return fmt.Errorf("client is  invalid! %w", err)
+	}
+
+	err = c.setupPublisher()
+	if err != nil {
+		return fmt.Errorf("client failed to setup databus publisher: %w", err)
+	}
+
+	timeout := time.Duration(c.Schema.DatabusSettings.RetryTimeoutSeconds) * time.Second
+	if err := c.publisher.publish(c, timeout, batch); err != nil {
+		return fmt.Errorf("client failed to publish batch: %w", err)
+	}
+
+	return nil
+}
+
+// Close the client.
+func (c *Client) Close() error {
+	if c.publisher != nil {
+		err := c.publisher.close()
+		if err != nil {
+			return fmt.Errorf("client failed to close publisher: %w", err)
+		}
+	}
+
+	if c.subscriber != nil {
+		err := c.subscriber.close()
+		if err != nil {
+			return fmt.Errorf("client failed to close subscriber: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// Subscribe to the databus. This will return a channel of messages and a channel of errors or an initialization error.
+// This will continue to read messages until the context is cancelled.
+// The schemaObjProvider is a interface that exposes a Create function to returns a new object given a schema version.
+func (c *Client) Subscribe(ctx context.Context,
+	schemaObjProvider NewSchemaObjectProvider,
+) (*SubscriptionResults, error) {
+	err := c.validateClient()
+	if err != nil {
+		return nil, fmt.Errorf("client is  invalid! %w", err)
+	}
+
+	err = c.setupSubscriber()
+	if err != nil {
+		return nil, fmt.Errorf("client failed to setup databus subscriber: %w", err)
+	}
+
+	retVal := c.subscriber.subscribe(ctx, schemaObjProvider)
+
+	return retVal, nil
+}
+
+// setupPublisher makes sure the publisher is initialized and ready for use.
+func (c *Client) setupPublisher() error {
+	if c.publisher != nil {
+		return nil
+	}
+
+	var publisher iPublisher
+
+	switch c.Databus.BusType {
+	case gcr.Kafka:
+		publisher = &kafkaPublisher{}
+	case gcr.Mock:
+		publisher = &mockPublisher{}
+	default:
+		errMsg := fmt.Sprintf("unknown databus type: %s", c.Databus.BusType)
+
+		return fmt.Errorf("%w: %s", ErrInvalidDatabusType, errMsg)
+	}
+
+	err := publisher.initialize(c)
+	if err != nil {
+		return fmt.Errorf("publisher initialize failed %w", err)
+	}
+
+	c.publisher = publisher
+	c.Validations.DatabusPublisher = true
+
+	return nil
+}
+
+// setupSubscriber makes sure the subscriber is initialized and ready for use.
+func (c *Client) setupSubscriber() error {
+	if c.subscriber != nil {
+		return nil
+	}
+
+	var subscriber iSubscriber
+
+	switch c.Databus.BusType {
+	case gcr.Kafka:
+		subscriber = &kafkaSubscriber{}
+	case gcr.Mock:
+		subscriber = &mockSubscriber{}
+	default:
+		errMsg := fmt.Sprintf("unknown databus type: %s", c.Databus.BusType)
+
+		return fmt.Errorf("%w: %s", ErrInvalidDatabusType, errMsg)
+	}
+
+	err := subscriber.initialize(c)
+	if err != nil {
+		return fmt.Errorf("subscriber initialize failed %w", err)
+	}
+
+	c.subscriber = subscriber
+
+	return nil
+}
+kafka.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+package databus
 
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
+	"net"
+	"os"
+	"sort"
+	"strings"
+	"text/tabwriter"
 	"time"
 
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdkTrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-)
-
-func initOtelTracerProvider(config TelemetryConfiguration, otelResource *resource.Resource, logger *zap.Logger) *sdkTrace.TracerProvider {
-	traceExporter := getSpanExporter(config.CollectorAddress, logger)
-
-	spanProcessor := sdkTrace.NewBatchSpanProcessor(traceExporter)
-	policy := config.SamplingPolicy
-
-	tracerProvider := sdkTrace.NewTracerProvider(
-		sdkTrace.WithSampler(policy),
-		sdkTrace.WithResource(otelResource),
-		sdkTrace.WithSpanProcessor(spanProcessor),
-	)
-
-	return tracerProvider
-}
-
-// create the opentelemetry span exporter. This is used to send telemetry data to the collector.
-// if connection to collector cannot be acquired then stdout exporter is returned.
-// if stdout exporter cannot be acquired then noop span exporter is returned.
-func getSpanExporter(collectorAddress string, logger *zap.Logger) sdkTrace.SpanExporter {
-	timeoutContext, cancel := context.WithTimeout(context.Background(), time.Second*15)
-	defer cancel()
-
-	// try to obtain grpc connection
-	grpcConnection, connectionError := getCollectorConnection(collectorAddress, timeoutContext)
-	if connectionError == nil {
-		// initialize grpc span exporter
-		traceExporter, exporterErr := otlptracegrpc.New(timeoutContext, otlptracegrpc.WithGRPCConn(grpcConnection))
-		if exporterErr == nil {
-			return traceExporter
-		} else {
-			logger.Error(fmt.Errorf("could not start grpc span exporter: %w", exporterErr).Error())
-		}
-	} else {
-		logger.Error(fmt.Errorf("could not start grpc connection: %w", connectionError).Error())
-	}
-
-	// if could not create grpc exporter then create standard output exporter
-	traceExporter, stdoutTracerError := stdouttrace.New()
-	if stdoutTracerError != nil {
-		logger.Error(fmt.Errorf("could not start standard output span exporter: %w", stdoutTracerError).Error())
-
-		return otlptracegrpc.NewUnstarted()
-	}
-
-	return traceExporter
-}
-
-// create a gRPC connection to the collector.
-func getCollectorConnection(collectorAddress string, timeoutContext context.Context) (*grpc.ClientConn, error) {
-	// #nosec G402
-	creds := credentials.NewTLS(&tls.Config{InsecureSkipVerify: false})
-	// this does not fail gracefully, if the collector is not available
-	grpcConnection, err := grpc.DialContext(timeoutContext,
-		collectorAddress,
-		grpc.WithTransportCredentials(creds),
-		grpc.WithBlock(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
-	}
-
-	return grpcConnection, nil
-}
-
-// getMetricProvider creates a new metric provider. The metrics provider, wraps the exporter; which will send meter data to the collector or stdout.
-func getMetricProvider(config TelemetryConfiguration, otelResource *resource.Resource, logger *zap.Logger) *sdkmetric.MeterProvider {
-	exp := getMetricExporter(config, logger)
-
-	return sdkmetric.NewMeterProvider(
-		sdkmetric.WithResource(otelResource),
-		sdkmetric.WithReader(
-			sdkmetric.NewPeriodicReader(
-				exp,
-				sdkmetric.WithInterval(config.MetricsSamplingInterval),
-			),
-		))
-}
-
-// getMetricExporter creates a new metric exporter. The exporter will send meter data to the collector or stdout.
-func getMetricExporter(config TelemetryConfiguration, logger *zap.Logger) sdkmetric.Exporter {
-	timeoutContext, cancel := context.WithTimeout(context.Background(), time.Second*15)
-	defer cancel()
-
-	connection, err := getCollectorConnection(config.CollectorAddress, timeoutContext)
-	if err != nil {
-		logger.Error(fmt.Errorf("failed to create gRPC connection to collector. metrics to route to stdout: %w", err).Error())
-
-		// always returns nil error
-		stdoutExporter, _ := stdoutmetric.New()
-
-		return stdoutExporter
-	}
-
-	exporter, err := otlpmetricgrpc.New(timeoutContext, otlpmetricgrpc.WithGRPCConn(connection))
-	if err != nil {
-		logger.Error(fmt.Errorf("failed to create GRPC Metric Exporter. metrics to route to stdout: %w", err).Error())
-
-		// always returns nil error
-		stdoutExporter, _ := stdoutmetric.New()
-
-		return stdoutExporter
-	}
-
-	return exporter
-}
-logging/metricsmanager.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
-package logging
-
-import (
-	"context"
-	"fmt"
-
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/noop"
-	"go.uber.org/zap"
-)
-
-type metricsManager struct {
-	metricProvider metric.MeterProvider
-	counters       map[string]metric.Int64Counter
-	logger         *zap.Logger
-	meter          metric.Meter
-}
-
-// metric names.
-// these metrics can be increased using logging.TelemetryLogger.
-const (
-	// counts messages send to kafka.
-	msgPublishedCounter = "message_published_counter"
-
-	// counts messages received from kafka.
-	msgReceivedCounter = "message_received_counter"
-
-	// counter increased each time the client app try to connect to Databus (kafka or other platform).
-	databusConnectionAttemptCounter = "databus_connection_attempt_counter"
-
-	// counter increased each time the client app try to disconnect from Databus (kafka or other platform).
-	databusDisconnectionAttemptCounter = "databus_disconnect_attempt_counter"
-
-	// counter increased each time the Databus SDK is initialized by client.
-	databusClientInitializationCounter = "databus_client_initialization_counter"
-)
-
-func newMetricsManager(config TelemetryConfiguration, meterProvider metric.MeterProvider, logger *zap.Logger) *metricsManager {
-	manager := metricsManager{}
-	manager.metricProvider = meterProvider
-	manager.counters = make(map[string]metric.Int64Counter)
-	manager.logger = logger
-
-	attributes := metric.WithInstrumentationAttributes(
-		attribute.String("TopicName", config.TopicName))
-
-	manager.meter = meterProvider.Meter(config.InstrumentationScope, attributes)
-
-	manager.initializeCounter(msgPublishedCounter)
-	manager.initializeCounter(msgReceivedCounter)
-	manager.initializeCounter(databusConnectionAttemptCounter)
-	manager.initializeCounter(databusDisconnectionAttemptCounter)
-	manager.initializeCounter(databusClientInitializationCounter)
-
-	return &manager
-}
-
-func (manager *metricsManager) initializeCounter(name string) {
-	counter, err := manager.meter.Int64Counter(name)
-	if err != nil {
-		manager.logger.Error(fmt.Errorf("could not create counter metric: %w", err).Error())
-
-		counter = noop.Int64Counter{}
-	}
-
-	manager.counters[name] = counter
-}
-
-func (manager *metricsManager) increaseCounter(ctx context.Context, counterName string, incrBy int64) {
-	counter := manager.counters[counterName]
-	if counter == nil {
-		manager.logger.Error(fmt.Sprintf("Counter %s not initialized!", counterName))
-	} else {
-		counter.Add(ctx, incrBy)
-	}
-}
-logging/kafkaheadercarrier.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
-package logging
-
-import (
+	awsc "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
-	"go.opentelemetry.io/otel/propagation"
+	"github.com/twmb/franz-go/pkg/kmsg"
+	faws "github.com/twmb/franz-go/pkg/sasl/aws"
+	"github.com/twmb/franz-go/pkg/sasl/scram"
+	"gitlab.com/prove-identity/data_platform/databus/gcr"
 )
 
-// KafkaHeaderCarrier adapts kafka.Header to satisfy the propagation.TextMapCarrier interface.
-type KafkaHeaderCarrier []kgo.RecordHeader
+type kafkaClientOption func(opts *[]kgo.Opt)
 
-// Compile time check that KafkaHeaderCarrier implements the TextMapCarrier.
-var _ propagation.TextMapCarrier = &KafkaHeaderCarrier{}
+func createKafkaClient(c *Client,
+	options ...kafkaClientOption,
+) (*kgo.Client, error) {
+	opts := []kgo.Opt{
+		kgo.SeedBrokers(c.Databus.BootstrapServers...),
+		kgo.DefaultProduceTopic(c.Schema.Name),
+	}
 
-// Get returns the value associated with the passed key.
-func (khc *KafkaHeaderCarrier) Get(key string) string {
-	for _, h := range *khc {
-		if h.Key == key {
-			return string(h.Value)
+	// Apply each kafkaClientOption to the opts slice.
+	for _, option := range options {
+		option(&opts)
+	}
+
+	allOpts, err := addKafkaAuthOptions(c, &opts)
+	if err != nil {
+		return nil, fmt.Errorf("getKafkaClient: failed to add kafka auth options: %w", err)
+	}
+
+	client, err := kgo.NewClient(allOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Kafka client: %w", err)
+	}
+
+	return client, nil
+}
+
+func withDefaultOptions(c *Client) kafkaClientOption {
+	return func(opts *[]kgo.Opt) {
+		*opts = append(*opts, kgo.RetryTimeout(time.Duration(c.Schema.DatabusSettings.RetryTimeoutSeconds)*time.Second),
+			kgo.RequestRetries(c.Schema.DatabusSettings.RequestRetries))
+	}
+}
+
+func withKafkaConsumerOptions(c *Client) kafkaClientOption {
+	ct := kgo.ConsumeTopics(c.Schema.Name)
+	cg := kgo.ConsumerGroup(c.Schema.SubscriptionOptions.ConsumerGroup)
+	// this offset is only used when the consumer group is new, otherwise it will use the committed offset
+	cro := kgo.ConsumeResetOffset(kgo.NewOffset().At(c.Schema.SubscriptionOptions.Offset))
+
+	return func(opts *[]kgo.Opt) { *opts = append(*opts, ct, cg, cro) }
+}
+
+// addKafkaAuthOptions adds the appropriate kgo.Opt for the given auth type.
+func addKafkaAuthOptions(c *Client,
+	opts *[]kgo.Opt,
+) ([]kgo.Opt, error) {
+	switch c.Databus.AuthType {
+	case gcr.SASLSCRAM512:
+		mskCredentials, err := readSASLCredentialsFromSecret(c.Databus.AwsConfig.SecretName,
+			c.Databus.AwsConfig.Region)
+		if err != nil {
+			return nil, fmt.Errorf("addKafkaAuthOptions: failed to read SASL credentials from secret: %w", err)
+		}
+
+		saslConfig := kgo.SASL(
+			scram.Auth{
+				User: mskCredentials.Username,
+				Pass: mskCredentials.Password,
+			}.AsSha512Mechanism(),
+		)
+
+		tlsDialer := kgo.Dialer((&tls.Dialer{NetDialer: &net.Dialer{Timeout: 30 * time.Second}}).DialContext)
+		*opts = append(*opts, saslConfig, tlsDialer)
+
+	case gcr.SASLIAM:
+		sess, err := session.NewSession()
+		if err != nil {
+			return nil, fmt.Errorf("addKafkaAuthOptions: failed to create aws session: %w", err)
+		}
+
+		saslConfig := kgo.SASL(faws.ManagedStreamingIAM(func(ctx context.Context) (faws.Auth, error) {
+			val, err := sess.Config.Credentials.GetWithContext(ctx)
+			if err != nil {
+				return faws.Auth{}, fmt.Errorf("failed to load AWS credentials %w", err)
+			}
+
+			return faws.Auth{
+				AccessKey:    val.AccessKeyID,
+				SecretKey:    val.SecretAccessKey,
+				SessionToken: val.SessionToken,
+				UserAgent:    fmt.Sprintf("databus-%s-client", c.Schema.Name),
+			}, nil
+		}))
+
+		tlsDialer := kgo.Dialer((&tls.Dialer{NetDialer: &net.Dialer{Timeout: 30 * time.Second}}).DialContext)
+		*opts = append(*opts, saslConfig, tlsDialer)
+
+	case gcr.UNAUTHENTICATED:
+		// do nothing
+
+	default:
+		return nil, fmt.Errorf("%w: %v", ErrKafkaUnsupportedAuth, c.Databus.AuthType)
+	}
+
+	return *opts, nil
+}
+
+// ErrKafkaUnsupportedAuth is an error returned when the auth type is not supported.
+var ErrKafkaUnsupportedAuth = errors.New("addKafkaAuthOptions: unsupported auth type")
+
+type mskAuthSecrets struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// internal function to read username, password from the secretname - to be used for SASLSCRAM.
+func readSASLCredentialsFromSecret(secretName, region string) (*mskAuthSecrets, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	config, err := awsc.LoadDefaultConfig(ctx, awsc.WithRegion(region))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load default aws config, %w", err)
+	}
+
+	svc := secretsmanager.NewFromConfig(config)
+	input := &secretsmanager.GetSecretValueInput{
+		SecretId: aws.String(secretName),
+	}
+
+	result, err := svc.GetSecretValue(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read secret %s, %w", secretName, err)
+	}
+
+	var readSecrets *mskAuthSecrets
+	if err := json.Unmarshal([]byte(*result.SecretString), &readSecrets); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal secret %s, %w", secretName, err)
+	}
+
+	return readSecrets, nil
+}
+
+const timeoutSeconds = 30
+
+// validateKafkaConnection validates that the kafka connection is valid and that the required topic exists.
+func (c *Client) validateKafkaConnection() error {
+	kafkaClient, err := createKafkaClient(c)
+	if err != nil {
+		return fmt.Errorf("validateKafkaConnection: failed to create kafka client: %w", err)
+	}
+	defer kafkaClient.Close()
+
+	adminClient := kadm.NewClient(kafkaClient)
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutSeconds*time.Second)
+
+	defer cancel()
+
+	topicDetails, err := adminClient.ListTopics(ctx)
+	if err != nil {
+		return fmt.Errorf("validateKafkaConnection: failed to list topics: %w", err)
+	}
+
+	topicName := c.Schema.Name
+	if !topicDetails.Has(topicName) {
+		isNonProd := c.Databus.BaseConfig.ConfigLoc != gcr.Prod && c.Schema.BaseConfig.ConfigLoc != gcr.Prod
+		if c.ClientOptions.createTestTopic && isNonProd && strings.HasPrefix(topicName, "test_") {
+			if err := createTopic(kafkaClient, topicName); err != nil {
+				return fmt.Errorf("failed to create topic: %w", err)
+			}
+		} else {
+			return fmt.Errorf("validateKafkaConnection: topic %s does not exist: %w", topicName, ErrNonExistentTopic)
 		}
 	}
 
-	return ""
-}
-
-// Set stores the key-value pair.
-func (khc *KafkaHeaderCarrier) Set(key string, value string) {
-	for i, h := range *khc {
-		if h.Key == key {
-			(*khc)[i].Value = []byte(value)
-
-			return
+	if c.ClientOptions.printBrokerInfo {
+		if _, err = brokerCheck(kafkaClient); err != nil {
+			return fmt.Errorf("brokerCheck failed: %w", err)
 		}
 	}
 
-	*khc = append(*khc, kgo.RecordHeader{Key: key, Value: []byte(value)})
+	return nil
 }
 
-// Keys lists the keys stored in this carrier.
-func (khc *KafkaHeaderCarrier) Keys() []string {
-	keys := make([]string, 0, len(*khc))
-	for _, h := range *khc {
-		keys = append(keys, h.Key)
+// brokerCheck checks if a given cluster is healthy.
+func brokerCheck(client *kgo.Client) (*kmsg.MetadataResponse, error) {
+	resp, err := kmsg.NewPtrMetadataRequest().RequestWith(context.Background(), client)
+	if err != nil {
+		return nil, fmt.Errorf("brokerCheck failed: %w", err)
 	}
 
-	return keys
-}
-logging/loggingerrors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
-package logging
+	err = printMetadata(resp)
+	if err != nil {
+		return nil, fmt.Errorf("printMetadata failed: %w", err)
+	}
 
-import (
-	"errors"
-)
+	return resp, nil
+}
 
 var (
-	ErrServiceNameNotSet          = errors.New("service name not set")
-	ErrInstrumentationScopeNotSet = errors.New("instrumentation scope not set")
+	ErrPrintResponseMetaData = errors.New("client response is nil")
+	ErrPrintTopicsFailed     = errors.New("printTopics failed")
+	ErrPrintPartitionsFailed = errors.New("printTopicPartitions failed")
+	ErrNillTopics            = errors.New("topics are nil")
+	ErrNilTopicName          = errors.New("topic name is nil")
+	ErrNilPartitions         = errors.New("partitions are nil")
+	ErrFailedToWriteHeader   = errors.New("failed to write header")
+	ErrFailedToWriteInfo     = errors.New("failed to write partition info")
+	ErrFailedToInitTabWrt    = errors.New("failed to initialize tab writer")
 )
-logging/kafkaheadercarrier.go:47: File is not `gofumpt`-ed (gofumpt)
 
-logging/loggingerrors.go:11: File is not `gofumpt`-ed (gofumpt)
+func printMetadata(resp *kmsg.MetadataResponse) error {
+	if resp == nil || resp.ClusterID == nil {
+		return fmt.Errorf("printMetadata: %w", ErrPrintResponseMetaData)
+	}
 
-logging/metricsmanager.go:78: File is not `gofumpt`-ed (gofumpt)
+	log.Printf("\nCLUSTER\n======\n%s\n", *resp.ClusterID)
+	log.Printf("\nBROKERS\n======\n")
+	printBootstrapservers(resp.ControllerID, resp.Brokers)
+	log.Printf("\nTOPICS\n======\n")
 
+	err := printTopics(resp.Topics)
+	if err != nil {
+		return fmt.Errorf("printTopics: %w", ErrPrintTopicsFailed)
+	}
+
+	return nil
+}
+
+func beginTabWrite() *tabwriter.Writer {
+	minwidth, tabwidth, padding := 6, 4, 2
+
+	return tabwriter.NewWriter(os.Stdout, minwidth, tabwidth, padding, ' ', 0)
+}
+
+func printBootstrapservers(controllerID int32, bootstrapservers []kmsg.MetadataResponseBroker) {
+	sort.Slice(bootstrapservers, func(i, j int) bool {
+		return bootstrapservers[i].NodeID < bootstrapservers[j].NodeID
+	})
+
+	tw := beginTabWrite()
+	defer tw.Flush()
+
+	fmt.Fprintf(tw, "ID\tHOST\tPORT\tRACK\n")
+
+	for _, broker := range bootstrapservers {
+		var controllerStar string
+		if broker.NodeID == controllerID {
+			controllerStar = "*"
+		}
+
+		var rack string
+		if broker.Rack != nil {
+			rack = *broker.Rack
+		}
+
+		fmt.Fprintf(tw, "%d%s\t%s\t%d\t%s\n", broker.NodeID, controllerStar, broker.Host, broker.Port, rack)
+	}
+}
+
+func printTopics(topics []kmsg.MetadataResponseTopic) error {
+	if topics == nil {
+		return fmt.Errorf("printTopics: %w", ErrNillTopics)
+	}
+
+	sort.Slice(topics, func(i, j int) bool {
+		return *topics[i].Topic < *topics[j].Topic
+	})
+
+	tw := beginTabWrite()
+	defer tw.Flush()
+
+	fmt.Fprintf(tw, "NAME\tPARTITIONS\tREPLICAS\n")
+
+	for _, topic := range topics {
+		parts := len(topic.Partitions)
+
+		replicas := 0
+
+		if parts > 0 {
+			replicas = len(topic.Partitions[0].Replicas)
+		}
+
+		fmt.Fprintf(tw, "%s\t%d\t%d\n", *topic.Topic, parts, replicas)
+
+		err := printTopicPartitions(topic)
+		if err != nil {
+			return fmt.Errorf("printTopicPartitions: %w", ErrPrintPartitionsFailed)
+		}
+	}
+
+	return nil
+}
+
+func printTopicPartitions(topic kmsg.MetadataResponseTopic) error {
+	if topic.Topic == nil {
+		return fmt.Errorf("printTopicPartitions: %w", ErrNilTopicName)
+	}
+
+	if topic.Partitions == nil {
+		return fmt.Errorf("printTopicPartitions: %w", ErrNilPartitions)
+	}
+
+	tw := beginTabWrite()
+	if tw == nil {
+		return fmt.Errorf("printTopicPartitions: %w", ErrFailedToInitTabWrt)
+	}
+
+	defer tw.Flush()
+
+	_, err := fmt.Fprintf(tw, "TOPIC NAME\tPARTITION ID\tLEADER\tREPLICAS\tISR\n")
+	if err != nil {
+		return fmt.Errorf("printTopicPartitions: %w", ErrFailedToWriteHeader)
+	}
+
+	for _, partition := range topic.Partitions {
+		_, err := fmt.Fprintf(tw, "%s\t%d\t%d\t%v\t%v\n",
+			*topic.Topic,
+			partition.Partition,
+			partition.Leader,
+			partition.Replicas,
+			partition.ISR,
+		)
+		if err != nil {
+			return fmt.Errorf("printTopicPartitions: %w", ErrFailedToWriteInfo)
+		}
+	}
+
+	return nil
+}
+
+func createTopic(kafkaClient *kgo.Client, topicName string) error {
+	adminClient := kadm.NewClient(kafkaClient)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+	defer cancel()
+
+	resp, err := adminClient.CreateTopic(ctx, 1, 1, map[string]*string{}, topicName)
+	if err != nil && !errors.Is(err, kerr.TopicAlreadyExists) {
+		return fmt.Errorf("failed to create topic %s: %w", topicName, err)
+	}
+
+	log.Printf("Successfully created topic %s", resp.Topic)
+
+	return nil
+}
 databus_errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
 package databus
 
@@ -307,6 +808,23 @@ package databus
 var (
 	InitClientOptions = initClientOptions
 	CreateClient      = createClient
+)
+databus.go:198: File is not `gofumpt`-ed (gofumpt)
+
+databus_errors.go:35: File is not `gofumpt`-ed (gofumpt)
+
+publisher.go:125: File is not `gofumpt`-ed (gofumpt)
+
+logging/loggingerrors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
+package logging
+
+import (
+	"errors"
+)
+
+var (
+	ErrServiceNameNotSet          = errors.New("service name not set")
+	ErrInstrumentationScopeNotSet = errors.New("instrumentation scope not set")
 )
 logging/kafkaheadercarrier_test.go:29:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)
 	assert.Equal(t, kgo.RecordHeader{Key: "foo", Value: []byte("bar")}, carrier[0]) //nolint:gosec // length was checked above

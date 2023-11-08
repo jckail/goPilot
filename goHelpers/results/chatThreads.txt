@@ -6,21 +6,21 @@ file_path:  /home/ec2-user/projects/helpersPrivate/goHelpers/results/codeRun.txt
 /home/ec2-user/projects/helpersPrivate/goHelpers/results/codeRun.txt
 The file prompt.txt was not found.
 trying: /home/ec2-user/projects/helpersPrivate/goHelpers/results/codeRun.txt
-['2023/11/08 07:27:42 Failed to initialize client: gcr.InitClient: failed to initialize TelemetryConfig: InitTelemetryConfig: loadAConfig Failed [config.go calling fetchJSONFromS3: Failed to load from S3 to bytes: failed to get object from S3: ExpiredToken: The provided token has expired.', 'status code: 400, request id: 12SZE5JR508EFH8Q, host id: u19XsNR6ZuF2yAnjAoS/o1GXYD2Eo9hb7sHZ/uVYbBCkj9yuv8AHwiucaRuwDM3C5lCSPAuyXzk=]']
+['2023/11/08 08:26:31 Failed to initialize client: gcr.InitClient: failed to initialize TelemetryConfig: InitTelemetryConfig: loadAConfig Failed [config.go calling fetchJSONFromS3: Failed to load from S3 to bytes: failed to get object from S3: ExpiredToken: The provided token has expired.', 'status code: 400, request id: 2N9P31K1GBF0NVNK, host id: bm1O7f7TgZczlEKIiZx90TgmhsDKnUE0Ip6sfGmSMoVOI8VsrbZAGgyyOHYBOFFYsjiv3fvJyHw=]']
 2 errors found
 
- Thread Created:  thread_oUOyotpaFCMs01borrhit647
-View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_oUOyotpaFCMs01borrhit647
+ Thread Created:  thread_6JGhnb1yk7yrl5LmAMVTstbm
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_6JGhnb1yk7yrl5LmAMVTstbm
 
- Message Created:  msg_bHzr4CcCTWRuoNU6xBKDS50S
+ Message Created:  msg_6ytZ4TzYafRG3XHxeV2RQqfz
 
- Run Created:  run_VtBpS7jh24sWEB0ixxmIzvqQ
+ Run Created:  run_AVlQ6RSC5IQvxvpzUjUfGLJK
 Status: in_progress sleeping for 10 seconds total wait: 15 seconds
 
  Ai Response completed! 
  
 
-View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_oUOyotpaFCMs01borrhit647 
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_6JGhnb1yk7yrl5LmAMVTstbm 
  
 
 file_path:  /home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
@@ -31,22 +31,21 @@ file_path:  /home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.
 /home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
 The file prompt.txt was not found.
 trying: /home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
-['logging/telemetrylogger_init.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', '"google.golang.org/grpc"', '"google.golang.org/grpc/credentials"', 'grpcConnection, connectionError := getCollectorConnection(collectorAddress, timeoutContext)', 'if connectionError == nil {', 'logger.Error(fmt.Errorf("could not start grpc span exporter: %w", exporterErr).Error())', 'logger.Error(fmt.Errorf("could not start grpc connection: %w", connectionError).Error())', 'traceExporter, stdoutTracerError := stdouttrace.New()', 'if stdoutTracerError != nil {', 'logger.Error(fmt.Errorf("could not start standard output span exporter: %w", stdoutTracerError).Error())', 'return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)', 'logger.Error(fmt.Errorf("failed to create gRPC connection to collector. metrics to route to stdout: %w", err).Error())', 'logger.Error(fmt.Errorf("failed to create GRPC Metric Exporter. metrics to route to stdout: %w", err).Error())', 'logging/metricsmanager.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'manager.logger.Error(fmt.Errorf("could not create counter metric: %w", err).Error())', 'manager.logger.Error(fmt.Sprintf("Counter %s not initialized!", counterName))', 'logging/kafkaheadercarrier.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'logging/loggingerrors.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'logging/kafkaheadercarrier.go:47: File is not `gofumpt`-ed (gofumpt)', 'logging/loggingerrors.go:11: File is not `gofumpt`-ed (gofumpt)', 'logging/metricsmanager.go:78: File is not `gofumpt`-ed (gofumpt)', 'databus_errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'var ErrNotYetImplemented = fmt.Errorf("not yet implemented")', 'var ErrInvalidDatabusType = fmt.Errorf("invalid data bus type")', 'var ErrInvalidSubscriber = fmt.Errorf("unitialized subscriber")', 'var ErrInvalidPublisher = fmt.Errorf("unitialized publisher")', 'var ErrInvalidSerde = fmt.Errorf("unitialized serde")', 'var ErrNonExistentTopic = fmt.Errorf("topic does not exist")', 'var ErrUninitializedClient = fmt.Errorf("uninitialized client")', 'var ErrInvalidOverride = fmt.Errorf("invalid client override")', '// ErrFailedToDeserializeMessage is returned when a message cannot be deserialized from the data bus.', 'var ErrFailedToDeserializeMessage = fmt.Errorf("failed to deserialize message")', 'var ErrNoVersionHeader = fmt.Errorf("no version header")', 'export_test.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'logging/kafkaheadercarrier_test.go:29:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)', 'logging/kafkaheadercarrier_test.go:30:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)']
-36 errors found
+['databusoptions.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'return fmt.Errorf("databus.go : initClient: %w", err)', 'return fmt.Errorf("initClient: initSerde: failed %w", err)', 'return fmt.Errorf("gcr.InitClient: %w", err)', 'return fmt.Errorf("validateConnection: invalid bus type! %w", ErrInvalidDatabusType)', 'databus.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'return nil, fmt.Errorf("parseOpts Failed: %w", err)', 'return nil, fmt.Errorf("create Client Failed: %w", err)', 'return fmt.Errorf("client is  invalid! %w", err)', 'return fmt.Errorf("client failed to setup databus publisher: %w", err)', 'return fmt.Errorf("client failed to publish batch: %w", err)', 'return fmt.Errorf("client failed to close publisher: %w", err)', 'return fmt.Errorf("client failed to close subscriber: %w", err)', 'return nil, fmt.Errorf("client is  invalid! %w", err)', 'return nil, fmt.Errorf("client failed to setup databus subscriber: %w", err)', 'return fmt.Errorf("%w: %s", ErrInvalidDatabusType, errMsg)', 'return fmt.Errorf("publisher initialize failed %w", err)', 'return fmt.Errorf("%w: %s", ErrInvalidDatabusType, errMsg)', 'return fmt.Errorf("subscriber initialize failed %w", err)', 'kafka.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'return nil, fmt.Errorf("getKafkaClient: failed to add kafka auth options: %w", err)', 'return nil, fmt.Errorf("failed to create Kafka client: %w", err)', 'return nil, fmt.Errorf("addKafkaAuthOptions: failed to read SASL credentials from secret: %w", err)', 'return nil, fmt.Errorf("addKafkaAuthOptions: failed to create aws session: %w", err)', 'return faws.Auth{}, fmt.Errorf("failed to load AWS credentials %w", err)', 'return nil, fmt.Errorf("%w: %v", ErrKafkaUnsupportedAuth, c.Databus.AuthType)', 'return nil, fmt.Errorf("failed to load default aws config, %w", err)', 'return nil, fmt.Errorf("failed to read secret %s, %w", secretName, err)', 'return nil, fmt.Errorf("failed to unmarshal secret %s, %w", secretName, err)', 'return fmt.Errorf("validateKafkaConnection: failed to create kafka client: %w", err)', 'return fmt.Errorf("validateKafkaConnection: failed to list topics: %w", err)', 'return fmt.Errorf("failed to create topic: %w", err)', 'return fmt.Errorf("validateKafkaConnection: topic %s does not exist: %w", topicName, ErrNonExistentTopic)', 'return fmt.Errorf("brokerCheck failed: %w", err)', 'return nil, fmt.Errorf("brokerCheck failed: %w", err)', 'return nil, fmt.Errorf("printMetadata failed: %w", err)', 'ErrPrintTopicsFailed     = errors.New("printTopics failed")', 'ErrPrintPartitionsFailed = errors.New("printTopicPartitions failed")', 'ErrFailedToWriteHeader   = errors.New("failed to write header")', 'ErrFailedToWriteInfo     = errors.New("failed to write partition info")', 'ErrFailedToInitTabWrt    = errors.New("failed to initialize tab writer")', 'return fmt.Errorf("printMetadata: %w", ErrPrintResponseMetaData)', 'return fmt.Errorf("printTopics: %w", ErrPrintTopicsFailed)', 'return fmt.Errorf("printTopics: %w", ErrNillTopics)', 'return fmt.Errorf("printTopicPartitions: %w", ErrPrintPartitionsFailed)', 'return fmt.Errorf("printTopicPartitions: %w", ErrNilTopicName)', 'return fmt.Errorf("printTopicPartitions: %w", ErrNilPartitions)', 'return fmt.Errorf("printTopicPartitions: %w", ErrFailedToInitTabWrt)', 'return fmt.Errorf("printTopicPartitions: %w", ErrFailedToWriteHeader)', 'return fmt.Errorf("printTopicPartitions: %w", ErrFailedToWriteInfo)', 'return fmt.Errorf("failed to create topic %s: %w", topicName, err)', 'databus_errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'var ErrNotYetImplemented = fmt.Errorf("not yet implemented")', 'var ErrInvalidDatabusType = fmt.Errorf("invalid data bus type")', 'var ErrInvalidSubscriber = fmt.Errorf("unitialized subscriber")', 'var ErrInvalidPublisher = fmt.Errorf("unitialized publisher")', 'var ErrInvalidSerde = fmt.Errorf("unitialized serde")', 'var ErrNonExistentTopic = fmt.Errorf("topic does not exist")', 'var ErrUninitializedClient = fmt.Errorf("uninitialized client")', 'var ErrInvalidOverride = fmt.Errorf("invalid client override")', '// ErrFailedToDeserializeMessage is returned when a message cannot be deserialized from the data bus.', 'var ErrFailedToDeserializeMessage = fmt.Errorf("failed to deserialize message")', 'var ErrNoVersionHeader = fmt.Errorf("no version header")', 'export_test.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'databus.go:198: File is not `gofumpt`-ed (gofumpt)', 'databus_errors.go:35: File is not `gofumpt`-ed (gofumpt)', 'publisher.go:125: File is not `gofumpt`-ed (gofumpt)', 'logging/loggingerrors.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'logging/kafkaheadercarrier_test.go:29:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)', 'logging/kafkaheadercarrier_test.go:30:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)']
+70 errors found
 
- Thread Created:  thread_RQl7Nvm9geqJ27wogfs16Ac6
-View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_RQl7Nvm9geqJ27wogfs16Ac6
+ Thread Created:  thread_DinY4bFdYI9vzD7q1bdGBqSY
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_DinY4bFdYI9vzD7q1bdGBqSY
 
- Message Created:  msg_rdyDKSLlpfhwauOICGa5ES69
+ Message Created:  msg_NWXYyMIGV0Pcxo7nWF5br2ij
 
- Run Created:  run_7UI9RAl7E8YDAs46rCCSa7qI
+ Run Created:  run_m05x7idfcapkRZ6dpQP10FlR
 Status: in_progress sleeping for 10 seconds total wait: 15 seconds
-Status: in_progress sleeping for 10 seconds total wait: 25 seconds
 
  Ai Response completed! 
  
 
-View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_RQl7Nvm9geqJ27wogfs16Ac6 
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_DinY4bFdYI9vzD7q1bdGBqSY 
  
 
 file_path:  /home/ec2-user/projects/helpersPrivate/goHelpers/results/testOutput.txt
@@ -60,17 +59,17 @@ trying: /home/ec2-user/projects/helpersPrivate/goHelpers/results/testOutput.txt
 []
 No errors found
 
- Thread Created:  thread_xESFudnziR9JhWqfJ9C3ZyQC
-View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_xESFudnziR9JhWqfJ9C3ZyQC
+ Thread Created:  thread_Wn6pVu8wCGM1PIQofJ8xp01r
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_Wn6pVu8wCGM1PIQofJ8xp01r
 
- Message Created:  msg_lrz1HOXjcxqbdgfvUd62tSGw
+ Message Created:  msg_FJd6CTfFRDX9JH6Zaf3dlHnw
 
- Run Created:  run_nx1zoWEm116e0xvjQuitwS4u
+ Run Created:  run_F1usm6dwrdMeEdqd42FuCKA0
 Status: in_progress sleeping for 10 seconds total wait: 15 seconds
 
  Ai Response completed! 
  
 
-View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_xESFudnziR9JhWqfJ9C3ZyQC 
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_Wn6pVu8wCGM1PIQofJ8xp01r 
  
 

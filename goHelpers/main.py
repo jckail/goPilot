@@ -51,7 +51,6 @@ if __name__ == "__main__":
     package_map, files = getter.consolidate_go_files(directory)
     # maximum of 20 
     #files = getterTwo.get_and_save_go_files(directory)
-    print("wtf", files)
 
     package_map_context = goHelperDirectory+"results/package_map_context.txt"
     # Write to the .txt file
@@ -59,7 +58,7 @@ if __name__ == "__main__":
         for package_name, fs in package_map.items():
             file.write(f"'{package_name}._go.txt' contains {fs}\n")
     files.append(package_map_context)
-    print("wtf", files)
+    
     _packages = ['logging', 'serde', 'gcr', 'databus']
 
     # Example usage:

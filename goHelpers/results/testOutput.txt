@@ -1,5 +1,5 @@
 ?   	gitlab.com/prove-identity/data_platform/databus/localtest/run	[no test files]
-ok  	gitlab.com/prove-identity/data_platform/databus	10.552s	coverage: 73.6% of statements
-ok  	gitlab.com/prove-identity/data_platform/databus/gcr	0.689s	coverage: 80.7% of statements
-ok  	gitlab.com/prove-identity/data_platform/databus/logging	30.011s	coverage: 81.6% of statements
-ok  	gitlab.com/prove-identity/data_platform/databus/serde	1.343s	coverage: 77.5% of statements
+ok  	gitlab.com/prove-identity/data_platform/databus	10.347s	coverage: 74.1% of statements
+ok  	gitlab.com/prove-identity/data_platform/databus/gcr	0.543s	coverage: 80.5% of statements
+ok  	gitlab.com/prove-identity/data_platform/databus/logging	30.012s	coverage: 81.6% of statements
+ok  	gitlab.com/prove-identity/data_platform/databus/serde	1.258s	coverage: 77.5% of statements
