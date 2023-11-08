@@ -1,7 +1,7 @@
-This go project is called: .'s here is it's current directory tree.
-.'s current Go Packages are: logging, serde, gcr, and databus
+This go project is called: databus's here is it's current directory tree.
+databus's current Go Packages are: logging, serde, gcr, and databus
 
-./
+databus/
 │   ├── configure_local.sh
 │   ├── coverage.txt
 │   ├── pre-commit
@@ -35,6 +35,7 @@ This go project is called: .'s here is it's current directory tree.
 │   ├── all_run.sh
 │   └── run.sh
 │   ├── run/
+│   │   ├── run_go.txt
 │   │   └── run_go.txt
 ├── logging/
 │   ├── kafkaheadercarrier_go.txt

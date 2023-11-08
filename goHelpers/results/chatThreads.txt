@@ -1,0 +1,76 @@
+file_path:  /home/ec2-user/projects/helpersPrivate/goHelpers/results/codeRun.txt
+
+ Fetching Assistant:  goBot
+
+ Found:  goBot
+/home/ec2-user/projects/helpersPrivate/goHelpers/results/codeRun.txt
+The file prompt.txt was not found.
+trying: /home/ec2-user/projects/helpersPrivate/goHelpers/results/codeRun.txt
+['2023/11/08 07:27:42 Failed to initialize client: gcr.InitClient: failed to initialize TelemetryConfig: InitTelemetryConfig: loadAConfig Failed [config.go calling fetchJSONFromS3: Failed to load from S3 to bytes: failed to get object from S3: ExpiredToken: The provided token has expired.', 'status code: 400, request id: 12SZE5JR508EFH8Q, host id: u19XsNR6ZuF2yAnjAoS/o1GXYD2Eo9hb7sHZ/uVYbBCkj9yuv8AHwiucaRuwDM3C5lCSPAuyXzk=]']
+2 errors found
+
+ Thread Created:  thread_oUOyotpaFCMs01borrhit647
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_oUOyotpaFCMs01borrhit647
+
+ Message Created:  msg_bHzr4CcCTWRuoNU6xBKDS50S
+
+ Run Created:  run_VtBpS7jh24sWEB0ixxmIzvqQ
+Status: in_progress sleeping for 10 seconds total wait: 15 seconds
+
+ Ai Response completed! 
+ 
+
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_oUOyotpaFCMs01borrhit647 
+ 
+
+file_path:  /home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
+
+ Fetching Assistant:  goBot
+
+ Found:  goBot
+/home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
+The file prompt.txt was not found.
+trying: /home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
+['logging/telemetrylogger_init.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', '"google.golang.org/grpc"', '"google.golang.org/grpc/credentials"', 'grpcConnection, connectionError := getCollectorConnection(collectorAddress, timeoutContext)', 'if connectionError == nil {', 'logger.Error(fmt.Errorf("could not start grpc span exporter: %w", exporterErr).Error())', 'logger.Error(fmt.Errorf("could not start grpc connection: %w", connectionError).Error())', 'traceExporter, stdoutTracerError := stdouttrace.New()', 'if stdoutTracerError != nil {', 'logger.Error(fmt.Errorf("could not start standard output span exporter: %w", stdoutTracerError).Error())', 'return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)', 'logger.Error(fmt.Errorf("failed to create gRPC connection to collector. metrics to route to stdout: %w", err).Error())', 'logger.Error(fmt.Errorf("failed to create GRPC Metric Exporter. metrics to route to stdout: %w", err).Error())', 'logging/metricsmanager.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'manager.logger.Error(fmt.Errorf("could not create counter metric: %w", err).Error())', 'manager.logger.Error(fmt.Sprintf("Counter %s not initialized!", counterName))', 'logging/kafkaheadercarrier.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'logging/loggingerrors.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'logging/kafkaheadercarrier.go:47: File is not `gofumpt`-ed (gofumpt)', 'logging/loggingerrors.go:11: File is not `gofumpt`-ed (gofumpt)', 'logging/metricsmanager.go:78: File is not `gofumpt`-ed (gofumpt)', 'databus_errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'var ErrNotYetImplemented = fmt.Errorf("not yet implemented")', 'var ErrInvalidDatabusType = fmt.Errorf("invalid data bus type")', 'var ErrInvalidSubscriber = fmt.Errorf("unitialized subscriber")', 'var ErrInvalidPublisher = fmt.Errorf("unitialized publisher")', 'var ErrInvalidSerde = fmt.Errorf("unitialized serde")', 'var ErrNonExistentTopic = fmt.Errorf("topic does not exist")', 'var ErrUninitializedClient = fmt.Errorf("uninitialized client")', 'var ErrInvalidOverride = fmt.Errorf("invalid client override")', '// ErrFailedToDeserializeMessage is returned when a message cannot be deserialized from the data bus.', 'var ErrFailedToDeserializeMessage = fmt.Errorf("failed to deserialize message")', 'var ErrNoVersionHeader = fmt.Errorf("no version header")', 'export_test.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'logging/kafkaheadercarrier_test.go:29:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)', 'logging/kafkaheadercarrier_test.go:30:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)']
+36 errors found
+
+ Thread Created:  thread_RQl7Nvm9geqJ27wogfs16Ac6
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_RQl7Nvm9geqJ27wogfs16Ac6
+
+ Message Created:  msg_rdyDKSLlpfhwauOICGa5ES69
+
+ Run Created:  run_7UI9RAl7E8YDAs46rCCSa7qI
+Status: in_progress sleeping for 10 seconds total wait: 15 seconds
+Status: in_progress sleeping for 10 seconds total wait: 25 seconds
+
+ Ai Response completed! 
+ 
+
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_RQl7Nvm9geqJ27wogfs16Ac6 
+ 
+
+file_path:  /home/ec2-user/projects/helpersPrivate/goHelpers/results/testOutput.txt
+
+ Fetching Assistant:  goBot
+
+ Found:  goBot
+/home/ec2-user/projects/helpersPrivate/goHelpers/results/testOutput.txt
+The file prompt.txt was not found.
+trying: /home/ec2-user/projects/helpersPrivate/goHelpers/results/testOutput.txt
+[]
+No errors found
+
+ Thread Created:  thread_xESFudnziR9JhWqfJ9C3ZyQC
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_xESFudnziR9JhWqfJ9C3ZyQC
+
+ Message Created:  msg_lrz1HOXjcxqbdgfvUd62tSGw
+
+ Run Created:  run_nx1zoWEm116e0xvjQuitwS4u
+Status: in_progress sleeping for 10 seconds total wait: 15 seconds
+
+ Ai Response completed! 
+ 
+
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_xESFudnziR9JhWqfJ9C3ZyQC 
+ 
+

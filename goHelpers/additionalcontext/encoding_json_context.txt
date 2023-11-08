@@ -59,7 +59,7 @@ Discover Packages    Standard library    encoding    json
 
 json  package  standard library
 Version: go1.21.4   Latest  Latest
-This package is not in the latest version of its module.     Go to latest     Published: Nov  7, 2023  License: BSD-3-Clause     Imports: 15     Imported by: 785,144
+This package is not in the latest version of its module.     Go to latest     Published: Nov  7, 2023  License: BSD-3-Clause     Imports: 15     Imported by: 785,099
 Main  Versions  Licenses  Imports  Imported By
 Details      Valid go.mod file
 The Go module system was introduced in Go 1.11 and is the official dependency management

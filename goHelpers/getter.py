@@ -1,6 +1,7 @@
 import os
 import re
 import logging
+from collections import defaultdict
 
 # Configure logging to write to stdout, which can be seen in the shell
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -16,6 +17,8 @@ def consolidate_go_files(directory):
     # Dictionary to hold the unique imports for each package
     package_imports = {}
 
+    package_map = defaultdict(list)
+
     # Regex to match package name and imports
     package_pattern = re.compile(r"^(?:\s*//.*\n)*\s*package (\S+)", re.MULTILINE)
     import_pattern = re.compile(r"^import (\S+)|import \(([\s\S]*?)\)")
@@ -23,12 +26,14 @@ def consolidate_go_files(directory):
     # Traverse through the directory
     for subdir, dirs, files in os.walk(directory):
         for file in files:
-            if file.endswith(".go") and not "_test" in file:
+            ## TODO figure out if this is good and not "_test" in file
+            if file.endswith(".go") and not "_test" in file: 
                 logger.info(f"Processing file: {file}")
                 file_path = os.path.join(subdir, file)
 
                 with open(file_path, "r") as f:
                     contents = f.read()
+                    contents = contents + f"\n // This is the end of {file}\n"
 
                     # Find the package name
                     package_match = package_pattern.search(contents)
@@ -62,10 +67,13 @@ def consolidate_go_files(directory):
 
                         # Remove imports from the content
                         contents = import_pattern.sub("", contents)
-
+                        #contents = f"// This is the start of {file}" + contents
+                        #print(contents)
                         # Append the contents to the package contents
+                        package_contents[package_name] += f"\n // This is the start of {file} "
                         package_contents[package_name] += contents + "\n"
-
+                        #print(package_contents[package_name])
+                        package_map[package_name].append(file)
     # Now create the consolidated .txt files with imports and package declarations
     for package_name, contents in package_contents.items():
         # Prepend unique imports and the package name to the content
@@ -85,7 +93,7 @@ def consolidate_go_files(directory):
             logger.error(f"Failed to write file: {output_file_path}, due to {e}")
 
     logger.info("Consolidation complete.")
-    return outputs
+    return package_map, outputs
 
 
 # The directory to consolidate should be passed as a command-line argument

@@ -5,9 +5,12 @@ Focus on implementing Go best practices, including annotations, comments for exp
 I will provide you with several files that contain my existing code base. 
 These files may have different extensions, but for files ending with "_go.txt" please treat them as ".go" files. 
 Each "_go.txt" file represents a go package in my code base.
+within each "_go.txt" file there are many ".go" files that have been consolidated to txt these are indicated by This is the start of file.go and  This is the end of file.go.
+Use these in tandem with the projectDirectoryTree_context.txt to map out the project.
+
 For example "gcr_go.txt" is the gcr package, "serde_go.txt" is the serde package, "databus_go.txt" is the databus package.
 
-It is critical to consider: projectDirectoryTree_context.txt.
+It is critical to consider: projectDirectoryTree_context.txt. AND the contents of each "_go.txt" file to understand the projects codebase. 
 It is important to consider the contents of the files that end with  "_context.txt". 
 The contents of "_context.txt" files may provide valuable information that can improve your answers and teach you more about packages imported in the go code. 
 

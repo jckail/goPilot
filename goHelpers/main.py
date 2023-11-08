@@ -2,6 +2,7 @@ import logging
 import walkIt
 import addGo
 import getter
+#import getterTwo
 import sys
 import htmlParser
 import directoryTree
@@ -46,8 +47,19 @@ if __name__ == "__main__":
 
     directories = walkIt.list_directories(directory)
     logger.info(directories)
-    files = getter.consolidate_go_files(directory)
+    #The OG approach
+    package_map, files = getter.consolidate_go_files(directory)
+    # maximum of 20 
+    #files = getterTwo.get_and_save_go_files(directory)
+    print("wtf", files)
 
+    package_map_context = goHelperDirectory+"results/package_map_context.txt"
+    # Write to the .txt file
+    with open(package_map_context, 'w') as file:
+        for package_name, fs in package_map.items():
+            file.write(f"'{package_name}._go.txt' contains {fs}\n")
+    files.append(package_map_context)
+    print("wtf", files)
     _packages = ['logging', 'serde', 'gcr', 'databus']
 
     # Example usage:
@@ -65,9 +77,9 @@ if __name__ == "__main__":
 
 
 
-    files.append(directoryTree.append_files_with_blurb(goHelperDirectory+'results/directory_tree.txt', goHelperDirectory+'results/directory_tree_updated.txt', goHelperDirectory+'results/projectDirectoryTree.txt', blurb_text))
+    files.append(directoryTree.append_files_with_blurb(goHelperDirectory+'results/directory_tree.txt', goHelperDirectory+'results/directory_tree_updated.txt', goHelperDirectory+'results/projectDirectoryTree_context.txt', blurb_text))
 
-
+    print(files)
     if updateContext is True:
         print('Updating Context')
         logger.info(files)

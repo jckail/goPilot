@@ -59,7 +59,7 @@ Discover Packages    Standard library    os
 
 os  package  standard library
 Version: go1.21.4   Latest  Latest
-This package is not in the latest version of its module.     Go to latest     Published: Nov  7, 2023  License: BSD-3-Clause     Imports: 16     Imported by: 1,178,058
+This package is not in the latest version of its module.     Go to latest     Published: Nov  7, 2023  License: BSD-3-Clause     Imports: 16     Imported by: 1,177,982
 Main  Versions  Licenses  Imports  Imported By
 Details      Valid go.mod file
 The Go module system was introduced in Go 1.11 and is the official dependency management
