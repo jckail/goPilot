@@ -1,221 +1,471 @@
-serde/avro_serde.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
-package serde
+gcr/app.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+package gcr
 
 import (
 	"fmt"
-
-	"github.com/hamba/avro/v2"
+	"log"
 )
 
-type avroSerde struct {
-	schema avro.Schema
+// AppConfig represents the configuration for an application.
+type AppConfig struct {
+	GcrType         GcrType
+	Name            string
+	AppOwner        string
+	AppDetails      AppDetails
+	ModuleSchemaMap map[string]ModuleSchema
+	BaseConfig      *BaseConfig
 }
 
-func newAvroSerde(serialTypeString string) (*avroSerde, error) {
-	schema, err := avro.Parse(serialTypeString)
+func (ac *AppConfig) Print() {
+	log.Printf("AppConfig:\n")
+	log.Printf("  GcrType: %v\n", ac.GcrType)
+	log.Printf("  Name: %s\n", ac.Name)
+	log.Printf("  AppOwner: %s\n", ac.AppOwner)
+	ac.AppDetails.Print()
+	// Print ModuleSchemaMap
+	log.Println("  ModuleSchemaMap:")
+
+	for k, v := range ac.ModuleSchemaMap {
+		log.Printf("    Key: %s\n", k)
+		v.Print()
+	}
+	// Print BaseConfig if it exists
+	if ac.BaseConfig != nil {
+		ac.BaseConfig.Print()
+	}
+}
+
+// AppDetails represents the details for an application.
+type AppDetails struct {
+	EnvFilePath string
+	DatabusEnv  envType
+}
+
+func (ad *AppDetails) Print() {
+	log.Printf("  AppDetails:\n")
+	log.Printf("    EnvFilePath: %s\n", ad.EnvFilePath)
+	log.Printf("    DatabusEnv: %v\n", ad.DatabusEnv)
+}
+
+// ModuleSchema represents the schema for a module.
+type ModuleSchema struct {
+	Function []string
+}
+
+func (ms *ModuleSchema) Print() {
+	log.Printf("    ModuleSchema:\n")
+	log.Printf("      Function: %v\n", ms.Function)
+}
+
+// WriteConfig writes the config to a file.
+func (ac *AppConfig) WriteConfig() error {
+	err := writeConfig(ac.BaseConfig.ConfigLoc,
+		ac.BaseConfig.ConfigPath, ac)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse avro schema! Error: [%s] %w", err.Error(), ErrInvalidAvroSchema)
+		return fmt.Errorf("databus.go WriteConfig failed %w", err)
 	}
 
-	return &avroSerde{
-		schema: schema,
-	}, nil
+	return nil
 }
 
-func (a *avroSerde) Serialize(in any) ([]byte, error) {
-	retVal, err := avro.Marshal(a.schema, in)
+// RemoveConfig removes the config file.
+func (ac *AppConfig) RemoveConfig() error {
+	err := removeConfig(ac.BaseConfig.ConfigLoc,
+		ac.BaseConfig.ConfigPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize avro schema! Error: [%s] %w", err.Error(), ErrSchemaSerializationFailed)
+		return fmt.Errorf("databus.go removeConfig failed %w", err)
+	}
+
+	return nil
+}
+
+// InitAppConfig initializes the AppConfig type for the gcr.
+func (gc *Config) InitAppConfig() (*AppConfig, error) {
+	var err error
+
+	config := &AppConfig{}
+
+	if config.BaseConfig, err = gc.SetBaseConfig(AppConfiguration, gc.GcrAppName); err != nil {
+		return nil, fmt.Errorf("InitAppConfig: %w [%s]", ErrInvalidGcrType, err.Error())
+	}
+
+	if err = gc.loadAConfig(config.BaseConfig, config); err != nil {
+		return nil, fmt.Errorf("InitAppConfig: %w [%s]", ErrInitConfigLoad, err.Error())
+	}
+
+	if err = config.Validate(); err != nil {
+		return nil, fmt.Errorf("InitAppConfig: %w [%s]", ErrInitConfigvalidate, err.Error())
+	}
+
+	config.Print()
+
+	return config, nil
+}
+gcr/auth.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+package gcr
+
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
+
+// AWSConfiguration defines the AWS configuration used by the databus.
+
+// AuthType defines authentication mechanisms supported by the message bus.
+type AuthType int
+
+const (
+	// UNAUTHENTICATED attempts to connect with no credentials.
+	UNAUTHENTICATED AuthType = iota
+	// SASLIAM attempts to connect using an AWS IAM role.
+	SASLIAM
+	// SASLSCRAM512 attempts to connect using the credentials stored in a secret store.
+	SASLSCRAM512
+)
+
+func (at AuthType) String() string {
+	switch at {
+	case UNAUTHENTICATED:
+		return "UNAUTHENTICATED"
+	case SASLIAM:
+		return "SASLIAM"
+	case SASLSCRAM512:
+		return "SASLSCRAM512"
+	default:
+		return unknownstring
+	}
+}
+
+func toAuthType(at string) AuthType {
+	switch strings.TrimSpace(strings.ToUpper(at)) {
+	case "UNAUTHENTICATED":
+		return UNAUTHENTICATED
+	case "SASLIAM":
+		return SASLIAM
+	case "SASLSCRAM512":
+		return SASLSCRAM512
+	default:
+		return UNAUTHENTICATED
+	}
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (at AuthType) MarshalJSON() ([]byte, error) {
+	retVal, err := json.Marshal(at.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal authenticationType of %s, %w", at, err)
 	}
 
 	return retVal, nil
 }
 
-func (a *avroSerde) DeserializeInto(rawVal []byte, out any) error {
-	err := avro.Unmarshal(a.schema, rawVal, out)
-	if err != nil {
-		return fmt.Errorf("failed to deserialize avro schema! Error: [%s] %w", err.Error(), ErrSchemaDeserializationFailed)
+// UnmarshalJSON attempts to convert a raw []byte to an AuthType.
+// This is used to unmarshal strings to enums.
+func (at *AuthType) UnmarshalJSON(data []byte) error {
+	var authType string
+
+	if err := json.Unmarshal(data, &authType); err != nil {
+		return fmt.Errorf("failed to unmarshal []byte to AuthType! %w", err)
 	}
+
+	*at = toAuthType(authType)
 
 	return nil
 }
-serde/serde.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
-// Package serde provides a Serde interface for serializing and deserializing data with a given schema data file
-package serde
+gcr/aws.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+package gcr
 
 import (
-	"fmt"
-
-	"gitlab.com/prove-identity/data_platform/databus/gcr"
-)
-
-// GlobalSerde is a helper struct that abstracts per-version MessageSerde implementations.
-type GlobalSerde struct {
-	loadedSchemas map[string]MessageSerde
-	// TODO: do we need this? depends on how these versions
-	// are stored in s3 - this can make it easier for loadSchemaVersion to find the file
-	schemaName    string
-	schemaVersion string
-}
-
-// NewGlobalSerde initializes a new GlobalSerde that is bootstrapped with the given schema configuration.
-func NewGlobalSerde(sConfig *gcr.SchemaConfig) (*GlobalSerde, error) {
-	gs := &GlobalSerde{
-		loadedSchemas: make(map[string]MessageSerde),
-		schemaName:    sConfig.Name,
-		schemaVersion: sConfig.Version,
-	}
-
-	serde, err := newMessageSerde(sConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize messageserde: %w", err)
-	}
-
-	gs.loadedSchemas[sConfig.Version] = serde
-
-	return gs, nil
-}
-
-// GetSerde returns the iSerde implementation for the given schema version.
-func (gs *GlobalSerde) GetSerde(schemaVersion string) (MessageSerde, error) {
-	serde, ok := gs.loadedSchemas[schemaVersion]
-	if !ok {
-		var err error
-		serde, err = gs.loadSchemaVersion(schemaVersion)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to load schema version %s: %w", schemaVersion, err)
-		}
-	}
-
-	return serde, nil
-}
-
-// DeserializeInto deserializes the given byte array into the given object using the configured schema and format.
-func (gs *GlobalSerde) DeserializeInto(schemaVersion string, data []byte, obj any) error {
-	serde, err := gs.GetSerde(schemaVersion)
-	if err != nil {
-		return fmt.Errorf("failed to get serde for schema version %s: %w", schemaVersion, err)
-	}
-
-	err = serde.DeserializeInto(data, obj)
-	if err != nil {
-		return fmt.Errorf("failed to deserialize data into object: %w", err)
-	}
-
-	return nil
-}
-
-// loadSchemaVersion is a helper function used to init a schema for a given version.
-// not only will this return the initialized schema, but it will also store it in its local cache for future use.
-func (gs *GlobalSerde) loadSchemaVersion(version string) (MessageSerde, error) {
-	gc, err := gcr.InitGcr(gs.schemaName, version, "dev", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get schema configuration for name %s and version %s: %w",
-			gs.schemaName, version, err)
-	}
-
-	serde, err := newMessageSerde(gc.SchemaConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize serde from config for version %s: %w", version, err)
-	}
-
-	gs.loadedSchemas[version] = serde
-
-	return serde, nil
-}
-
-// MessageSerde is an interface for serializing and deserializing data with a given schema data file.
-type MessageSerde interface {
-	// serialize serializes the given data into a byte array using the configured schema and format
-	Serialize(any) ([]byte, error)
-
-	// deserializeInto deserializes the given byte array into the given object using the configured schema and format
-	DeserializeInto([]byte, any) error
-}
-
-// newMessageSerde initializes a MessageSerde from a schema data file.
-func newMessageSerde(schemaDataFile *gcr.SchemaConfig) (MessageSerde, error) {
-	switch schemaDataFile.SerialType {
-	case gcr.JSON:
-		return newJSONSerde(schemaDataFile.SerialTypeString)
-	case gcr.AVRO:
-		return newAvroSerde(schemaDataFile.SerialTypeString)
-	default:
-		errMsg := fmt.Sprintf("unknown schema type: %s", schemaDataFile.SerialType)
-
-		return nil, fmt.Errorf("%w %s", ErrUnknownSerialType, errMsg)
-	}
-}
-serde/json_serde.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
-package serde
-
-import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-type jsonSerde struct {
-	jsonSchema *gojsonschema.Schema
+// AwsConfig mskAuthSecrets defines the format of the string
+// stored in secretstore that will contain the username and password for SASL SCRAM authentication.
+type AwsConfig struct {
+	Region     string `json:"region"`
+	SecretName string `json:"secretName"`
 }
 
-func newJSONSerde(schema string) (*jsonSerde, error) {
-	sl := gojsonschema.NewSchemaLoader()
-	sl.Validate = true
-
-	jsonSchema, err := sl.Compile(gojsonschema.NewStringLoader(schema))
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile json schema! Error: [%s] %w", err.Error(), ErrInvalidJSONSchema)
-	}
-
-	return &jsonSerde{
-		jsonSchema: jsonSchema,
-	}, nil
+// Print displays the contents of the AwsConfig.
+func (ac *AwsConfig) Print() {
+	log.Printf("        Function: %v\n", ac.Region)
+	log.Printf("        Function: %v\n", ac.SecretName)
 }
 
-// Serialize serializes the given data into a byte array using the configured json schema.
-func (j *jsonSerde) Serialize(in any) ([]byte, error) {
-	rawVal, err := json.Marshal(in)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal object! Error %s: %w", err.Error(), ErrSchemaSerializationFailed)
-	}
-
-	documentLoader := gojsonschema.NewBytesLoader(rawVal)
-
-	res, err := j.jsonSchema.Validate(documentLoader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate json schema! Error: [%s] %w", err.Error(), ErrSchemaValidationFailed)
-	}
-
-	if !res.Valid() {
-		return nil, fmt.Errorf("returned json schema is invalid! Error: [%s] %w", res.Errors(), ErrSchemaValidationFailed)
-	}
-
-	return rawVal, nil
+type s3Config struct {
+	s3Region  string
+	s3Bucket  string
+	s3Key     string
+	s3Payload struct{}
+	awsSess   *session.Session
+	s3Client  *s3.S3
 }
 
-// DeserializeInto deserializes the given byte array into the given object.
-func (j *jsonSerde) DeserializeInto(rawVal []byte, out any) error {
-	err := json.Unmarshal(rawVal, out)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal incoming json! Error %s: %w", err.Error(), ErrSchemaDeserializationFailed)
+// Print method for s3Config.
+func (s3c *s3Config) Print() {
+	log.Printf("s3Region: %s\n", s3c.s3Region)
+	log.Printf("s3Bucket: %s\n", s3c.s3Bucket)
+	log.Printf("s3Key: %s\n", s3c.s3Key)
+	log.Printf("s3Payload: %+v\n", s3c.s3Payload)
+	log.Printf("s3Client: %+v\n", s3c.s3Client)
+}
+
+func initS3Config(s3Key string) (*s3Config, error) {
+	s3Config := &s3Config{
+		s3Region: "us-west-2",
+		s3Bucket: "prove-global-configurations-repository",
+		s3Key:    s3Key,
 	}
 
-	documentLoader := gojsonschema.NewGoLoader(out)
-
-	res, err := j.jsonSchema.Validate(documentLoader)
+	awsSess, err := s3Config.createSession()
 	if err != nil {
-		return fmt.Errorf("failed to deserialze json! Error: [%s] %w", err.Error(), ErrSchemaValidationFailed)
+		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
-	if !res.Valid() {
-		return fmt.Errorf("failed to deserialze json! Error: [%s] %w", res.Errors(), ErrSchemaValidationFailed)
+	s3Config.awsSess = awsSess
+	s3Config.s3Client = s3.New(s3Config.awsSess)
+
+	return s3Config, nil
+}
+
+func (s3c *s3Config) createSession() (*session.Session, error) {
+	sess, err := session.NewSession(&aws.Config{
+		Region:                        aws.String(s3c.s3Region),
+		CredentialsChainVerboseErrors: aws.Bool(true),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AWS session: %w", err)
+	}
+
+	return sess, nil
+}
+
+// fetchJSONFromS3 fetches the content of a JSON file from a specified S3 bucket.
+func fetchJSONFromS3(key string) ([]byte, error) {
+	s3c, err := initS3Config(key)
+	if err != nil {
+		return nil, fmt.Errorf("error initializing s3Config: %w", err)
+	}
+
+	input := &s3.GetObjectInput{
+		Bucket: aws.String(s3c.s3Bucket),
+		Key:    aws.String(key),
+	}
+
+	result, err := s3c.s3Client.GetObject(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object from S3: %w", err)
+	}
+	defer result.Body.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, result.Body)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy body to buffer: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+// uploadStructToS3 uploads a struct to an S3 bucket.
+func uploadStructToS3(key string, structToUpload interface{}) error {
+	s3c, err := initS3Config(key)
+	if err != nil {
+		return fmt.Errorf("initS3Config failed: %w", err)
+	}
+
+	jsonBytes, err := json.Marshal(structToUpload)
+	if err != nil {
+		return fmt.Errorf("json.Marshal failed: %w", err)
+	}
+
+	input := &s3.PutObjectInput{
+		Bucket: aws.String(s3c.s3Bucket),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(jsonBytes),
+	}
+
+	if _, err := s3c.s3Client.PutObject(input); err != nil {
+		return fmt.Errorf("putObject failed: %w", err)
 	}
 
 	return nil
 }
+
+// // removeFromS3 removes a file from an S3 bucket.
+// func removeFromS3(key string) error {
+// 	s3c, err := initS3Config(key)
+// 	if err != nil {
+// 		return fmt.Errorf("error initializing s3Config: %w", err)
+// 	}
+
+// 	input := &s3.DeleteObjectInput{
+// 		Bucket: aws.String(s3c.s3Bucket),
+// 		Key:    aws.String(key),
+// 	}
+
+// 	_, err = s3c.s3Client.DeleteObject(input)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to delete object from S3: %w", err)
+// 	}
+
+// 	return nil
+// }
+gcr/errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
+package gcr
+
+import "errors"
+
+// This File contains all errors for the GCR package.
+
+// GCR.
+var (
+	ErrMissingAppOwner    = errors.New("app owner not found in appconfig .json file ")
+	ErrMissingAppName     = errors.New("app name not found in appconfig .json file ")
+	ErrInvalidGcrType     = errors.New("invalid GcrType in config.json file ")
+	ErrInitConfigBase     = errors.New("SetBaseConfig Failed")
+	ErrInitConfigLoad     = errors.New("loadAConfig Failed")
+	ErrInitConfigvalidate = errors.New("validate Failed")
+)
+
+// BASEConfig.
+var (
+	ErrBaseConfigNil                            = errors.New("BaseConfig is nil")
+	ErrFailedToMatchGcrType                     = errors.New("SetBaseConfig failed to match GcrType")
+	ErrValidateBaseConfig                       = errors.New("baseconfig failed to validate")
+	ErrConfigPathOverrideLocalCannotBeEmpty     = errors.New("configPathOverride cannot be empty for Local config")
+	ErrConfigPathOverrideNonLocalCannotBeEmpty  = errors.New("path cannot be empty for non-Local config")
+	ErrMissingBaseConfig                        = errors.New("baseconfig not found apart of config")
+	ErrBaseConfigInvalidConfigLoc               = errors.New("configLoc Is invalid")
+	ErrBaseConfigBlankConfigPath                = errors.New("ConfigPath Is blank")
+	ErrBaseConfigConfigPathMissingJSONExtention = errors.New("ConfigPath Is does not have .json")
+	ErrBaseConfigBlankFileName                  = errors.New("ConfigPath Is blank")
+	ErrBaseConfigInvalidPath                    = errors.New("the path is invalid")
+)
+
+// DATABUS.
+var (
+	// ErrInvalidDBConfig is returned when the databus configuration is invalid.
+	ErrInvalidDBConfig = errors.New("invalid databus configuration")
+	// ErrInvalidBusType is returned when the message bus type is invalid.
+	ErrInvalidBusType = errors.New("invalid message bus type")
+)
+
+// ENV.
+// ErrNoMappedEnvironment is returned when the environment variable is not set.
+var (
+	ErrNoMappedEnvironment = errors.New("no mapped environment")
+)
+
+// MOCKS.
+// ErrMockEnvProd is returned when the given envType is Prod.
+var (
+	ErrMockEnvProd = errors.New("prod is not a valid configLoc for a mock config")
+)
+
+/// Options
+
+// ErrOverridesNil is returned when the overrides object is nil.
+var (
+	ErrInputSliceNilOrEmpty       = errors.New("input slice is nil or empty")
+	ErrStringEmptyOrWhitespace    = errors.New("string is empty or only contains whitespace")
+	ErrGeneratingPathCombinations = errors.New("error generating path combinations")
+	ErrUnrecognizedConfigPath     = errors.New("unrecognized configuration path")
+	ErrOverridesNil               = errors.New("config overrides are nil")
+)
+
+// / Schema
+// ErrInvalidSerialType is the error message when an invalid schema type is used.
+var (
+	ErrInvalidSerialType = errors.New("invalid schema type")
+	// ErrInvalidSchemaConfig is the error message when an invalid schema configuration is used.
+	ErrInvalidSchemaConfig = errors.New("invalid schema configuration")
+)
+
+// Validations.
+var (
+	// ErrClientEmptyName is returned when the schema name is empty.
+	ErrClientEmptyName = errors.New("name cannot be empty")
+	// ErrClientEmptyVersion is returned when the schema version is empty.
+	ErrClientEmptyVersion = errors.New("version cannot be empty")
+	// ErrClientEnvUnknown is returned when the client environment is unknown.
+	ErrClientEnvUnknown = errors.New("clientEnv cannot be empty or unknown")
+	// ErrEmptySchemaName is returned when the schema name is empty.
+	ErrEmptySchemaName = errors.New("schema Name is empty: ")
+	// ErrDoubleUnderscoreInSchema is returned when the schema name contains __ or two consecutive underscore characters.
+	ErrDoubleUnderscoreInSchema = errors.New("schema name contains __ or two consecutive underscore characters")
+	// ErrInvalidCharacterInSchema is returned when the schema name contains a character that is not a letter.
+	ErrInvalidCharacterInSchema = errors.New("schema name contains a character that is not a letter")
+	// ErrUpperCaseInSchema is returned when the schema name contains an uppercase letter.
+	ErrUpperCaseInSchema = errors.New("schema name contains an uppercase letter, must be all lowercase")
+	// ErrInvalidSchemaVersionParts is returned when the schema version is not divided into exactly 2 parts.
+	ErrInvalidSchemaVersionParts = errors.New("schemaVersion must be divided into exactly 2 parts")
+	// ErrInvalidSchemaVersionCharacter is returned when the schema version contains a non-integer character.
+	ErrInvalidSchemaVersionCharacter = errors.New("invalid character found; it is not an integer")
+	// ErrEmptySchemaVersion is returned when the schema version is empty.
+	ErrEmptySchemaVersion = errors.New("schema Version is empty: ")
+	// ErrSchemaVersionDoesNotStartWithV is returned when the schema version does not start with a v.
+	ErrSchemaVersionDoesNotStartWithV = errors.New("schema Version Does not start with v:  ")
+	// ErrEmptyEnvValue is returned when the environment value is empty.
+	ErrEmptyEnvValue = errors.New("environment value is empty")
+)
+
+// Auth.
+
+// ErrInvalidAuthType is the error message for when an invalid authentication type is used.
+var (
+	ErrInvalidAuthType = errors.New("invalid authentication type")
+)
+
+// Telemetry.
+var (
+	// ErrMissingServiceName is returned when the service name is empty.
+	ErrMissingServiceName = errors.New("service name is empty")
+	// ErrMissingCollectorAddress is returned when the collector address is empty.
+	ErrMissingCollectorAddress = errors.New("collector address cannot be empty")
+	// ErrMissingInstrumentationScope is returned when the instrumentation scope is empty.
+	ErrMissingInstrumentationScope = errors.New("instrumentation scope cannot be empty")
+	// ErrMissingSchemaName is returned when the service name is empty.
+	ErrMissingSchemaName = errors.New("schema name cannot be empty")
+	// ErrInvalidSamplingPolicyType is returned when the sampling policy type is invalid.
+	ErrInvalidSamplingPolicyType = errors.New("invalid sampling policy type")
+)
+gcr/export_test.go:1: File is not `gofmt`-ed with `-s` (gofmt)
+package gcr
+
+var (
+	ValidateClientEnv           = validateClientEnv
+	ValidateSchemaVersion       = validateSchemaVersion
+	ValidateSchemaName          = validateSchemaName
+	RemoveConfig                = removeConfig
+	WriteConfig                 = writeConfig
+	GenerateMockAppConfig       = generateMockAppConfig
+	GenerateMockSchemaConfig    = generateMockSchemaConfig
+	GenerateMockDatabusConfig   = generateMockDatabusConfig
+	GenerateMockTelemetryConfig = generateMockTelemetryConfig
+	ParseConfigPathOverride     = (ConfigPathOverride).parseConfigPathOverride
+	ToMap                       = (*Overrides).toMap
+	GetConfigLoc                = (*BaseConfig).getConfigLoc
+	GetConfigPath               = (*BaseConfig).getConfigPath
+	LoadAConfig                 = (*Config).loadAConfig
+	CreateGcrConfig             = createGcrConfig
+)
+gcr/app.go:103: File is not `gofumpt`-ed (gofumpt)
+
+gcr/auth.go:72: File is not `gofumpt`-ed (gofumpt)
+
+gcr/aws.go:148: File is not `gofumpt`-ed (gofumpt)
+
 serde/serde_errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
 package serde
 
@@ -238,58 +488,6 @@ var ErrInvalidJSONSchema = errors.New("invalid JSON schema")
 
 // ErrInvalidAvroSchema is returned when the configured Avro schema fails to parse.
 var ErrInvalidAvroSchema = errors.New("invalid Avro schema")
-serde/avro_serde.go:41: File is not `gofumpt`-ed (gofumpt)
-
-serde/json_serde.go:69: File is not `gofumpt`-ed (gofumpt)
-
-serde/serde.go:108: File is not `gofumpt`-ed (gofumpt)
-
-logging/loggingerrors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
-package logging
-
-import (
-	"errors"
-)
-
-var (
-	ErrServiceNameNotSet          = errors.New("service name not set")
-	ErrInstrumentationScopeNotSet = errors.New("instrumentation scope not set")
-)
-databus_errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
-package databus
-
-import "fmt"
-
-// ErrNotYetImplemented is returned when a function is not yet implemented.
-// This is a temporary error and will be removed for production.
-var ErrNotYetImplemented = fmt.Errorf("not yet implemented")
-
-// ErrInvalidDatabusType is returned when the data bus type is invalid.
-var ErrInvalidDatabusType = fmt.Errorf("invalid data bus type")
-
-// ErrInvalidSubscriber is returned when the subscriber is not initialized.
-var ErrInvalidSubscriber = fmt.Errorf("unitialized subscriber")
-
-// ErrInvalidPublisher is returned when the publisher is not initialized.
-var ErrInvalidPublisher = fmt.Errorf("unitialized publisher")
-
-// ErrInvalidSerde is returned when the serde is not initialized.
-var ErrInvalidSerde = fmt.Errorf("unitialized serde")
-
-// ErrNonExistentTopic is returned when the topic for the configured schema does not exist.
-var ErrNonExistentTopic = fmt.Errorf("topic does not exist")
-
-// ErrUninitializedClient is returned when the client is not initialized.
-var ErrUninitializedClient = fmt.Errorf("uninitialized client")
-
-// ErrInvalidOverride is returned when the overrides are invalid for the environment.
-var ErrInvalidOverride = fmt.Errorf("invalid client override")
-
-// ErrFailedToDeserializeMessage is returned when a message cannot be deserialized from the data bus.
-var ErrFailedToDeserializeMessage = fmt.Errorf("failed to deserialize message")
-
-// ErrNoVersionHeader is returned when the read message does not have a version header.
-var ErrNoVersionHeader = fmt.Errorf("no version header")
 logging/kafkaheadercarrier_test.go:29:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)
 	assert.Equal(t, kgo.RecordHeader{Key: "foo", Value: []byte("bar")}, carrier[0]) //nolint:gosec // length was checked above
 	                                                                                ^

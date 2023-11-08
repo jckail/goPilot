@@ -245,7 +245,7 @@ class AssistantManager:
         thread = self.client.beta.threads.create()
         print("\n Thread Created: ", thread.id)
         url = "https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread="
-        print("view thread here: ", url+str(thread.id))
+        print("View response here: ", url+str(thread.id))
         
         message = self.client.beta.threads.messages.create(
             thread_id=thread.id,

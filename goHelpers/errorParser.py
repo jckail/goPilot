@@ -22,10 +22,8 @@ if __name__ == "__main__":
         logger.error("Usage: python errorParser.py <directory>")
         sys.exit(1)
 
-    updateContext = False
-    deleteAll = False
-
     file_path = str(sys.argv[1])
+    logger.info("%s", file_path)
     print("file_path: ",file_path)
 
     #goHelperDirectory = "/home/ec2-user/projects/helpersPrivate/goHelpers/"

@@ -55,17 +55,6 @@ def replace_suffix_in_file(input_filepath, output_filepath):
     with open(output_filepath, 'w') as f:
         f.write(new_content)
 
-
-# Example usage:
-# exclusions = ['unwanted_directory', 'unwanted_file.go']
-_packages = ['logging', 'serde', 'gcr', 'databus']
-
-# Example usage:
-save_dir_tree_to_file('/home/ec2-user/projects/databus/', 'additionalcontext/directory_tree.txt',packages=_packages)
-
-# Example usage:
-replace_suffix_in_file('additionalcontext/directory_tree.txt', 'additionalcontext/directory_tree_updated.txt')
-
 def append_files_with_blurb(file1, file2, final_file, blurb):
     # Open the first file and read its contents
     with open(file1, 'r') as f:
@@ -80,16 +69,30 @@ def append_files_with_blurb(file1, file2, final_file, blurb):
         f.write(content1 + '\n')
         f.write(blurb + '\n\n')
         f.write(content2)
-
-# Example usage:
-blurb_text = ("The directory tree above is a reflection of the actual directory tree, "
-              "the directory tree below is similar to what i've given you without the directories, "
-              "but simply take note that the contents of a \".go\" file are the same as the contents "
-              "of a \"_go.txt\" file in that you can map these trees one to one and they are identical.")
+    return os.path.abspath(final_file)
 
 
+if __name__ == "__main__":
+    # Example usage:
+    # exclusions = ['unwanted_directory', 'unwanted_file.go']
+    _packages = ['logging', 'serde', 'gcr', 'databus']
 
-append_files_with_blurb('additionalcontext/directory_tree.txt', 'additionalcontext/directory_tree_updated.txt', 'additionalcontext/projectDirectoryTree.txt', blurb_text)
+    # Example usage:
+    save_dir_tree_to_file('/home/ec2-user/projects/databus/', 'results/directory_tree.txt',packages=_packages)
+
+    # Example usage:
+    replace_suffix_in_file('results/directory_tree.txt', 'results/directory_tree_updated.txt')
+
+
+    # Example usage:
+    blurb_text = ("The directory tree above is a reflection of the actual directory tree, "
+                "the directory tree below is similar to what i've given you without the directories, "
+                "but simply take note that the contents of a \".go\" file are the same as the contents "
+                "of a \"_go.txt\" file in that you can map these trees one to one and they are identical.")
+
+
+
+    append_files_with_blurb('results/directory_tree.txt', 'results/directory_tree_updated.txt', 'results/projectDirectoryTree.txt', blurb_text)
 
 
 

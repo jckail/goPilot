@@ -1,71 +1,71 @@
-2023/11/08 06:07:33 SchemaConfig:
-2023/11/08 06:07:33   GcrType: schema
-2023/11/08 06:07:33   name: garfield_billing
-2023/11/08 06:07:33   version: v0.0
-2023/11/08 06:07:33   SerialType: JSON
-2023/11/08 06:07:33   SerialTypeString: {"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://gitlab.com/prove-identity/prove-auth/garfield/pkg/common/billing/charge-event","$ref":"#/$defs/ChargeEvent","$defs":{"AuthSubjects":{"properties":{"Device":{"type":"boolean"},"Mobile":{"type":"boolean"},"User":{"type":"boolean"},"Card":{"type":"boolean"}},"additionalProperties":false,"type":"object","required":["Device","Mobile","User","Card"]},"ChargeEvent":{"properties":{"BillingEvent":{"type":"string"},"Version":{"type":"integer"},"Timestamp":{"type":"integer"},"AuthId":{"type":"string"},"ApiClientId":{"type":"string"},"SubClientId":{"type":"string"},"ProveCustomerId":{"type":"string"},"ProveSubCustomerId":{"type":"string"},"RequestId":{"type":"string"},"UserId":{"type":"string"},"DeviceId":{"type":"string"},"ForceBind":{"type":"boolean"},"AuthService":{"type":"string"},"MobileOperator":{"type":"string"},"Authenticators":{"items":{"type":"string"},"type":"array"},"OtpDetails":{"$ref":"#/$defs/OTPDetails"},"Subjects":{"$ref":"#/$defs/AuthSubjects"},"Delivery":{"$ref":"#/$defs/Delivery"}},"additionalProperties":false,"type":"object","required":["BillingEvent","Version","Timestamp","AuthId","ApiClientId","SubClientId","ProveCustomerId","ProveSubCustomerId","RequestId","UserId","DeviceId","ForceBind","AuthService","MobileOperator","Authenticators","OtpDetails","Subjects","Delivery"]},"Delivery":{"properties":{"Push":{"type":"boolean"}},"additionalProperties":false,"type":"object","required":["Push"]},"OTPDetails":{"properties":{"SmsSent":{"type":"integer"},"TransactionDetails":{"type":"string"}},"additionalProperties":false,"type":"object","required":["SmsSent","TransactionDetails"]}}}
-2023/11/08 06:07:33   Owner: test_app
-2023/11/08 06:07:33   Description: A simple JSON schema for testing
-2023/11/08 06:07:33   DatabusSettings:
-2023/11/08 06:07:33     RetryTimeoutSeconds: 120
-2023/11/08 06:07:33     RequestRetries: 10
-2023/11/08 06:07:33   Policies:
-2023/11/08 06:07:33     SecurityPolicy: [noUII]
-2023/11/08 06:07:33     SchemaAuthorizations:
-2023/11/08 06:07:33       Enabled: true
-2023/11/08 06:07:33       AuthorizedOwners: [jordan test_team dataPlatformTeam]
-2023/11/08 06:07:33       AuthorizedPublishers:
-2023/11/08 06:07:33         Name: anothertest
-2023/11/08 06:07:33       AuthorizedSubscribers:
-2023/11/08 06:07:33         Name: test
-2023/11/08 06:07:33   BaseConfig:
-2023/11/08 06:07:33     GcrType: schema
-2023/11/08 06:07:33     Overrides:
-2023/11/08 06:07:33 ConfigOverrides:
+2023/11/08 06:57:40 SchemaConfig:
+2023/11/08 06:57:40   GcrType: schema
+2023/11/08 06:57:40   name: garfield_billing
+2023/11/08 06:57:40   version: v0.0
+2023/11/08 06:57:40   SerialType: JSON
+2023/11/08 06:57:40   SerialTypeString: {"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://gitlab.com/prove-identity/prove-auth/garfield/pkg/common/billing/charge-event","$ref":"#/$defs/ChargeEvent","$defs":{"AuthSubjects":{"properties":{"Device":{"type":"boolean"},"Mobile":{"type":"boolean"},"User":{"type":"boolean"},"Card":{"type":"boolean"}},"additionalProperties":false,"type":"object","required":["Device","Mobile","User","Card"]},"ChargeEvent":{"properties":{"BillingEvent":{"type":"string"},"Version":{"type":"integer"},"Timestamp":{"type":"integer"},"AuthId":{"type":"string"},"ApiClientId":{"type":"string"},"SubClientId":{"type":"string"},"ProveCustomerId":{"type":"string"},"ProveSubCustomerId":{"type":"string"},"RequestId":{"type":"string"},"UserId":{"type":"string"},"DeviceId":{"type":"string"},"ForceBind":{"type":"boolean"},"AuthService":{"type":"string"},"MobileOperator":{"type":"string"},"Authenticators":{"items":{"type":"string"},"type":"array"},"OtpDetails":{"$ref":"#/$defs/OTPDetails"},"Subjects":{"$ref":"#/$defs/AuthSubjects"},"Delivery":{"$ref":"#/$defs/Delivery"}},"additionalProperties":false,"type":"object","required":["BillingEvent","Version","Timestamp","AuthId","ApiClientId","SubClientId","ProveCustomerId","ProveSubCustomerId","RequestId","UserId","DeviceId","ForceBind","AuthService","MobileOperator","Authenticators","OtpDetails","Subjects","Delivery"]},"Delivery":{"properties":{"Push":{"type":"boolean"}},"additionalProperties":false,"type":"object","required":["Push"]},"OTPDetails":{"properties":{"SmsSent":{"type":"integer"},"TransactionDetails":{"type":"string"}},"additionalProperties":false,"type":"object","required":["SmsSent","TransactionDetails"]}}}
+2023/11/08 06:57:40   Owner: test_app
+2023/11/08 06:57:40   Description: A simple JSON schema for testing
+2023/11/08 06:57:40   DatabusSettings:
+2023/11/08 06:57:40     RetryTimeoutSeconds: 120
+2023/11/08 06:57:40     RequestRetries: 10
+2023/11/08 06:57:40   Policies:
+2023/11/08 06:57:40     SecurityPolicy: [noUII]
+2023/11/08 06:57:40     SchemaAuthorizations:
+2023/11/08 06:57:40       Enabled: true
+2023/11/08 06:57:40       AuthorizedOwners: [jordan test_team dataPlatformTeam]
+2023/11/08 06:57:40       AuthorizedPublishers:
+2023/11/08 06:57:40         Name: anothertest
+2023/11/08 06:57:40       AuthorizedSubscribers:
+2023/11/08 06:57:40         Name: test
+2023/11/08 06:57:40   BaseConfig:
+2023/11/08 06:57:40     GcrType: schema
+2023/11/08 06:57:40     Overrides:
+2023/11/08 06:57:40 ConfigOverrides:
   
-2023/11/08 06:07:33   ConfigPathOverride: localtest/garfield_billing__0_0.json
-2023/11/08 06:07:33     ConfigLoc: local
-2023/11/08 06:07:33     ConfigPath: localtest/garfield_billing__0_0.json
-2023/11/08 06:07:33     FileName: garfield_billing/v0_0/garfield_billing__v0_0
-2023/11/08 06:07:33 AppConfig:
-2023/11/08 06:07:33   GcrType: app
-2023/11/08 06:07:33   Name: test_app
-2023/11/08 06:07:33   AppOwner: jordan
-2023/11/08 06:07:33   AppDetails:
-2023/11/08 06:07:33     EnvFilePath: .env
-2023/11/08 06:07:33     DatabusEnv: dev
-2023/11/08 06:07:33   ModuleSchemaMap:
-2023/11/08 06:07:33     Key: package
-2023/11/08 06:07:33     ModuleSchema:
-2023/11/08 06:07:33       Function: [test_schema]
-2023/11/08 06:07:33   BaseConfig:
-2023/11/08 06:07:33     GcrType: app
-2023/11/08 06:07:33     Overrides:
-2023/11/08 06:07:33 ConfigOverrides:
+2023/11/08 06:57:40   ConfigPathOverride: localtest/garfield_billing__0_0.json
+2023/11/08 06:57:40     ConfigLoc: local
+2023/11/08 06:57:40     ConfigPath: localtest/garfield_billing__0_0.json
+2023/11/08 06:57:40     FileName: garfield_billing/v0_0/garfield_billing__v0_0
+2023/11/08 06:57:40 AppConfig:
+2023/11/08 06:57:40   GcrType: app
+2023/11/08 06:57:40   Name: test_app
+2023/11/08 06:57:40   AppOwner: jordan
+2023/11/08 06:57:40   AppDetails:
+2023/11/08 06:57:40     EnvFilePath: .env
+2023/11/08 06:57:40     DatabusEnv: dev
+2023/11/08 06:57:40   ModuleSchemaMap:
+2023/11/08 06:57:40     Key: package
+2023/11/08 06:57:40     ModuleSchema:
+2023/11/08 06:57:40       Function: [test_schema]
+2023/11/08 06:57:40   BaseConfig:
+2023/11/08 06:57:40     GcrType: app
+2023/11/08 06:57:40     Overrides:
+2023/11/08 06:57:40 ConfigOverrides:
   
-2023/11/08 06:07:33   ConfigPathOverride: localtest/test_app.json
-2023/11/08 06:07:33     ConfigLoc: local
-2023/11/08 06:07:33     ConfigPath: localtest/test_app.json
-2023/11/08 06:07:33     FileName: test_app
-2023/11/08 06:07:33 DatabusConfig:
-2023/11/08 06:07:33   GcrType: databus
-2023/11/08 06:07:33   Defaults: {10 120}
-2023/11/08 06:07:33   BootstrapServers: [b-1.dev476067937195uw2data.vqjqp6.c3.kafka.us-west-2.amazonaws.com:9098 b-2.dev476067937195uw2data.vqjqp6.c3.kafka.us-west-2.amazonaws.com:9098]
-2023/11/08 06:07:33   BusType: KAFKA
-2023/11/08 06:07:33   AuthType: SASLIAM
-2023/11/08 06:07:33 AwsConfig:
-2023/11/08 06:07:33         Function: us-west-2
-2023/11/08 06:07:33         Function: secretName
-2023/11/08 06:07:33   Spec: 
-2023/11/08 06:07:33   BaseConfig:
-2023/11/08 06:07:33     GcrType: databus
-2023/11/08 06:07:33     Overrides:
-2023/11/08 06:07:33 ConfigOverrides:
+2023/11/08 06:57:40   ConfigPathOverride: localtest/test_app.json
+2023/11/08 06:57:40     ConfigLoc: local
+2023/11/08 06:57:40     ConfigPath: localtest/test_app.json
+2023/11/08 06:57:40     FileName: test_app
+2023/11/08 06:57:40 DatabusConfig:
+2023/11/08 06:57:40   GcrType: databus
+2023/11/08 06:57:40   Defaults: {10 120}
+2023/11/08 06:57:40   BootstrapServers: [b-1.dev476067937195uw2data.vqjqp6.c3.kafka.us-west-2.amazonaws.com:9098 b-2.dev476067937195uw2data.vqjqp6.c3.kafka.us-west-2.amazonaws.com:9098]
+2023/11/08 06:57:40   BusType: KAFKA
+2023/11/08 06:57:40   AuthType: SASLIAM
+2023/11/08 06:57:40 AwsConfig:
+2023/11/08 06:57:40         Function: us-west-2
+2023/11/08 06:57:40         Function: secretName
+2023/11/08 06:57:40   Spec: 
+2023/11/08 06:57:40   BaseConfig:
+2023/11/08 06:57:40     GcrType: databus
+2023/11/08 06:57:40     Overrides:
+2023/11/08 06:57:40 ConfigOverrides:
   
-2023/11/08 06:07:33   ConfigPathOverride: localtest/kakfa.json
-2023/11/08 06:07:33     ConfigLoc: local
-2023/11/08 06:07:33     ConfigPath: localtest/kakfa.json
-2023/11/08 06:07:33     FileName: kafka
-2023/11/08 06:07:33 Failed to initialize client: gcr.InitClient: failed to initialize TelemetryConfig: InitTelemetryConfig: loadAConfig Failed [config.go calling fetchJSONFromS3: Failed to load from S3 to bytes: failed to get object from S3: ExpiredToken: The provided token has expired.
-	status code: 400, request id: 2X079A5AQ3RJH0QD, host id: 17mW/fQpnBpreUX5LIR8oG87d9431OztroAP3Z2kdAfycRY2O3poEE8sE0PStXnB/o+IgCj63u0=]
+2023/11/08 06:57:40   ConfigPathOverride: localtest/kakfa.json
+2023/11/08 06:57:40     ConfigLoc: local
+2023/11/08 06:57:40     ConfigPath: localtest/kakfa.json
+2023/11/08 06:57:40     FileName: kafka
+2023/11/08 06:57:40 Failed to initialize client: gcr.InitClient: failed to initialize TelemetryConfig: InitTelemetryConfig: loadAConfig Failed [config.go calling fetchJSONFromS3: Failed to load from S3 to bytes: failed to get object from S3: ExpiredToken: The provided token has expired.
+	status code: 400, request id: FXM72C25JYJT28P9, host id: Kqd0Nzlbamo/oNMSh4NyUKY5uw4ryn9v1DytxNpLRrdq4uxSUYHONn5MV14DSlNfoNzVs84hUL0=]
 exit status 1
