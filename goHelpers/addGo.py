@@ -2,21 +2,34 @@ import openai
 import os
 import shutil
 import fnmatch
+import time
+#from dotenv import load_dotenv
+
+# def get_openai_api_key():
+#     try:
+#         return os.getenv('OPENAI_API_KEY')
+#     except KeyError:
+#         raise KeyError("Environment variable 'OPENAI_API_KEY' not found.")
 
 
 class AssistantManager:
-    def __init__(self, apiKey, assistantName,outputdirectory):
-        self.client = openai.OpenAI(api_key=apiKey)
+    def __init__(self, assistantName,goHelperDirectory):
+        # load_dotenv(dotenv_path=goHelperDirectory)
+        # apiKey = get_openai_api_key()
+        # print("helperDir",goHelperDirectory,"apiKey ",apiKey)
+        self.client = openai.OpenAI()
         
         self.assistantName = assistantName
         self.my_assistant = self.fetchAssistant()
-        self.execPath = outputdirectory
+        self.execPath = goHelperDirectory
         print(self.execPath)
         self.uploadFiles = []
         self.promptPath = self.execPath+"prompt.txt"
-        self.additionalContext = self.getAdditionalContext()
+        self.additionalContext = [] 
         
         self.updateAssistant()
+        self.assistantFileNames = {}
+        
 
     def removeFilesFromAssistant(self):
         print("\n Removing Files from Assistants: ")
@@ -73,8 +86,12 @@ class AssistantManager:
                 context_files.append(os.path.join(addcontext, file))
         return context_files
 
-    def uploadFilestoAssistant(self,uploadFiles):
-        self.uploadFiles = uploadFiles + self.additionalContext
+    def uploadFilestoAssistant(self,uploadFiles,updateContext):
+        if updateContext is True:
+            self.additionalContext = self.getAdditionalContext()
+            print("\n uploading additional context")
+            uploadFiles += self.additionalContext
+        self.uploadFiles = uploadFiles
         print("\n uploading ",str(len(self.uploadFiles))," files to assistant")
         
         print(
@@ -84,7 +101,7 @@ class AssistantManager:
             + str(len(list(self.my_assistant.file_ids)))
             + " files attached \n",
         )
-
+        self.detectFileNames()
         for uploadFile in self.uploadFiles:
             self.deleteDupe(uploadFile)
 
@@ -118,26 +135,28 @@ class AssistantManager:
             print("\n uploadFilestoAssistant Completed! \n")
             return True
         return False
-
-    def deleteDupe(self, uploadFile):
+    
+    def detectFileNames(self):
         self.my_assistant = self.client.beta.assistants.retrieve(self.my_assistant.id)
         if len(list(self.my_assistant.file_ids)) > 0:
             for fileId in self.my_assistant.file_ids:
                 f = self.client.files.retrieve(fileId)
-                if f.filename == os.path.basename(uploadFile):
-                    print("duplicate detected: ", f.filename)
+                self.assistantFileNames[f.filename] =  fileId
+        print(self.my_assistant.name, " Assistant Files: ",self.assistantFileNames)
 
-                    self.client.beta.assistants.files.delete(
-                        assistant_id=self.my_assistant.id, file_id=f.id
-                    )
-                    ## this removes from OpenApi
-                    print("\n Deleting: ", f.filename, f.purpose, f.id)
-                    self.client.files.delete(f.id)
-                    ##
-                    print(
-                        "duplicate deleted: ", f.filename, " from: ", self.my_assistant.name
-                    )
-            self.my_assistant = self.client.beta.assistants.retrieve(self.my_assistant.id)
+    def deleteDupe(self, uploadFile):
+        basefile = os.path.basename(uploadFile)
+        if  basefile in self.assistantFileNames.keys():
+            print("duplicate detected: ", basefile)
+
+            self.client.beta.assistants.files.delete(
+                assistant_id=self.my_assistant.id, file_id=self.assistantFileNames[basefile]
+            )
+            ## this removes from OpenApi
+            print("\n Deleting: ", basefile,self.assistantFileNames[basefile])
+            self.client.files.delete(self.assistantFileNames[basefile])
+
+        self.my_assistant = self.client.beta.assistants.retrieve(self.my_assistant.id)
 
     def fetchAssistant(self):
         print("\n Fetching Assistant: ", self.assistantName)
@@ -191,7 +210,7 @@ class AssistantManager:
                 os.remove(source)
                 print(f"{source} has been deleted.")
             else:
-                print(f"Did not copy: {uploads} does not exist after copying.")
+                print(f"Did not remove source: {source}")
                 
         except FileNotFoundError:
             print("The source file does not exist.")
@@ -200,9 +219,74 @@ class AssistantManager:
         except Exception as e:
             print(f"An error occurred: {e}")
         
+    def createThread(self, addContent):
 
+        if len(addContent) == 0: 
+            print("No errors found")
+            outcontent=f"""
+            My code ran succesfully, that I stored in the "_go.txt" files I've uploaded.
+            What are some items marked as "TODO"  or "//TODO" in any of the "_go.txt" files I've uploaded?
+            """
 
+        if len(addContent) == 1: 
+            print("1 error found")
+            outcontent=f"""I have encountered this error '{addContent[0]}' when running the 
+            the code I gave you in the "_go.txt" files I've uploaded.
+            Please provide me a solution or debugging steps so I can quickly resolve. 
+            """
 
+        if len(addContent) >= 1: 
+            print(f"{str(len(addContent))} errors found")
+            outcontent=f"""I have encountered these errors '{str(addContent)}' when running the 
+            the code I gave you in the "_go.txt" files I've uploaded.
+            Please provide me a solution or debugging steps so I can quickly resolve. 
+            """
+
+        thread = self.client.beta.threads.create()
+        print("\n Thread Created: ", thread.id)
+        url = "https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread="
+        print("view thread here: ", url+str(thread.id))
+        
+        message = self.client.beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=outcontent)
+        
+        print("\n Message Created: ", message.id)
+        
+        run = self.client.beta.threads.runs.create(
+            ## TODO can add in threads to the assistant client class
+            thread_id=thread.id,
+            assistant_id=self.my_assistant.id,
+            instructions="It is important to remind you to review all of the documents I have uploaded"
+            )
+        print("\n Run Created: ", run.id)
+
+        time.sleep(5)
+        run = self.client.beta.threads.runs.retrieve(
+            thread_id=thread.id,
+            run_id=run.id
+            )
+        timeoutSleep = 5 
+        
+        while run.status != "completed" and timeoutSleep < 125:
+            timeoutSleep += 10
+            print(f"Status: {str(run.status)} sleeping for 10 seconds total wait: {str(timeoutSleep)} seconds")
+            time.sleep(10)
+            run = self.client.beta.threads.runs.retrieve(
+                thread_id=thread.id,
+                run_id=run.id
+                )
+
+        if run.status == "completed":
+            print("\n Ai Response completed! \n ")
+            print("\nView response here: ", url+str(thread.id),"\n","\n")
+            messages = self.client.beta.threads.messages.list(
+                thread_id=thread.id
+                )
+            return messages
+        print("\n Failed! \n ")
+        return None
 
 # Example of how to use the class
 if __name__ == "__main__":

@@ -5,6 +5,8 @@ install:
 	@pip3 install openai
 	@pip3 install requests
 	@pip3 install bs4
+	@pip3 install python-dotenv
+	@pip3 install directory_tree
 
 create_script:
 	@echo "#!/bin/bash" > all_run.sh

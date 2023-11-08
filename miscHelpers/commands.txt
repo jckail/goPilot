@@ -2,3 +2,5 @@
 
 
  ~/projects/helpersPrivate/goHelpers/run_getter.sh /home/ec2-user/projects/databus
+
+ ./all_run.sh -d /home/ec2-user/projects/databus/ -u false -a false

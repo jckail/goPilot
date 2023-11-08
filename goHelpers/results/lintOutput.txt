@@ -1,0 +1,298 @@
+serde/avro_serde.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+package serde
+
+import (
+	"fmt"
+
+	"github.com/hamba/avro/v2"
+)
+
+type avroSerde struct {
+	schema avro.Schema
+}
+
+func newAvroSerde(serialTypeString string) (*avroSerde, error) {
+	schema, err := avro.Parse(serialTypeString)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse avro schema! Error: [%s] %w", err.Error(), ErrInvalidAvroSchema)
+	}
+
+	return &avroSerde{
+		schema: schema,
+	}, nil
+}
+
+func (a *avroSerde) Serialize(in any) ([]byte, error) {
+	retVal, err := avro.Marshal(a.schema, in)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize avro schema! Error: [%s] %w", err.Error(), ErrSchemaSerializationFailed)
+	}
+
+	return retVal, nil
+}
+
+func (a *avroSerde) DeserializeInto(rawVal []byte, out any) error {
+	err := avro.Unmarshal(a.schema, rawVal, out)
+	if err != nil {
+		return fmt.Errorf("failed to deserialize avro schema! Error: [%s] %w", err.Error(), ErrSchemaDeserializationFailed)
+	}
+
+	return nil
+}
+serde/serde.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+// Package serde provides a Serde interface for serializing and deserializing data with a given schema data file
+package serde
+
+import (
+	"fmt"
+
+	"gitlab.com/prove-identity/data_platform/databus/gcr"
+)
+
+// GlobalSerde is a helper struct that abstracts per-version MessageSerde implementations.
+type GlobalSerde struct {
+	loadedSchemas map[string]MessageSerde
+	// TODO: do we need this? depends on how these versions
+	// are stored in s3 - this can make it easier for loadSchemaVersion to find the file
+	schemaName    string
+	schemaVersion string
+}
+
+// NewGlobalSerde initializes a new GlobalSerde that is bootstrapped with the given schema configuration.
+func NewGlobalSerde(sConfig *gcr.SchemaConfig) (*GlobalSerde, error) {
+	gs := &GlobalSerde{
+		loadedSchemas: make(map[string]MessageSerde),
+		schemaName:    sConfig.Name,
+		schemaVersion: sConfig.Version,
+	}
+
+	serde, err := newMessageSerde(sConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize messageserde: %w", err)
+	}
+
+	gs.loadedSchemas[sConfig.Version] = serde
+
+	return gs, nil
+}
+
+// GetSerde returns the iSerde implementation for the given schema version.
+func (gs *GlobalSerde) GetSerde(schemaVersion string) (MessageSerde, error) {
+	serde, ok := gs.loadedSchemas[schemaVersion]
+	if !ok {
+		var err error
+		serde, err = gs.loadSchemaVersion(schemaVersion)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to load schema version %s: %w", schemaVersion, err)
+		}
+	}
+
+	return serde, nil
+}
+
+// DeserializeInto deserializes the given byte array into the given object using the configured schema and format.
+func (gs *GlobalSerde) DeserializeInto(schemaVersion string, data []byte, obj any) error {
+	serde, err := gs.GetSerde(schemaVersion)
+	if err != nil {
+		return fmt.Errorf("failed to get serde for schema version %s: %w", schemaVersion, err)
+	}
+
+	err = serde.DeserializeInto(data, obj)
+	if err != nil {
+		return fmt.Errorf("failed to deserialize data into object: %w", err)
+	}
+
+	return nil
+}
+
+// loadSchemaVersion is a helper function used to init a schema for a given version.
+// not only will this return the initialized schema, but it will also store it in its local cache for future use.
+func (gs *GlobalSerde) loadSchemaVersion(version string) (MessageSerde, error) {
+	gc, err := gcr.InitGcr(gs.schemaName, version, "dev", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get schema configuration for name %s and version %s: %w",
+			gs.schemaName, version, err)
+	}
+
+	serde, err := newMessageSerde(gc.SchemaConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize serde from config for version %s: %w", version, err)
+	}
+
+	gs.loadedSchemas[version] = serde
+
+	return serde, nil
+}
+
+// MessageSerde is an interface for serializing and deserializing data with a given schema data file.
+type MessageSerde interface {
+	// serialize serializes the given data into a byte array using the configured schema and format
+	Serialize(any) ([]byte, error)
+
+	// deserializeInto deserializes the given byte array into the given object using the configured schema and format
+	DeserializeInto([]byte, any) error
+}
+
+// newMessageSerde initializes a MessageSerde from a schema data file.
+func newMessageSerde(schemaDataFile *gcr.SchemaConfig) (MessageSerde, error) {
+	switch schemaDataFile.SerialType {
+	case gcr.JSON:
+		return newJSONSerde(schemaDataFile.SerialTypeString)
+	case gcr.AVRO:
+		return newAvroSerde(schemaDataFile.SerialTypeString)
+	default:
+		errMsg := fmt.Sprintf("unknown schema type: %s", schemaDataFile.SerialType)
+
+		return nil, fmt.Errorf("%w %s", ErrUnknownSerialType, errMsg)
+	}
+}
+serde/json_serde.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+package serde
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/xeipuuv/gojsonschema"
+)
+
+type jsonSerde struct {
+	jsonSchema *gojsonschema.Schema
+}
+
+func newJSONSerde(schema string) (*jsonSerde, error) {
+	sl := gojsonschema.NewSchemaLoader()
+	sl.Validate = true
+
+	jsonSchema, err := sl.Compile(gojsonschema.NewStringLoader(schema))
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile json schema! Error: [%s] %w", err.Error(), ErrInvalidJSONSchema)
+	}
+
+	return &jsonSerde{
+		jsonSchema: jsonSchema,
+	}, nil
+}
+
+// Serialize serializes the given data into a byte array using the configured json schema.
+func (j *jsonSerde) Serialize(in any) ([]byte, error) {
+	rawVal, err := json.Marshal(in)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal object! Error %s: %w", err.Error(), ErrSchemaSerializationFailed)
+	}
+
+	documentLoader := gojsonschema.NewBytesLoader(rawVal)
+
+	res, err := j.jsonSchema.Validate(documentLoader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate json schema! Error: [%s] %w", err.Error(), ErrSchemaValidationFailed)
+	}
+
+	if !res.Valid() {
+		return nil, fmt.Errorf("returned json schema is invalid! Error: [%s] %w", res.Errors(), ErrSchemaValidationFailed)
+	}
+
+	return rawVal, nil
+}
+
+// DeserializeInto deserializes the given byte array into the given object.
+func (j *jsonSerde) DeserializeInto(rawVal []byte, out any) error {
+	err := json.Unmarshal(rawVal, out)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal incoming json! Error %s: %w", err.Error(), ErrSchemaDeserializationFailed)
+	}
+
+	documentLoader := gojsonschema.NewGoLoader(out)
+
+	res, err := j.jsonSchema.Validate(documentLoader)
+	if err != nil {
+		return fmt.Errorf("failed to deserialze json! Error: [%s] %w", err.Error(), ErrSchemaValidationFailed)
+	}
+
+	if !res.Valid() {
+		return fmt.Errorf("failed to deserialze json! Error: [%s] %w", res.Errors(), ErrSchemaValidationFailed)
+	}
+
+	return nil
+}
+serde/serde_errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
+package serde
+
+import "errors"
+
+// ErrUnknownSerialType is the error message for an unknown schema type.
+var ErrUnknownSerialType = errors.New("unknown schema type")
+
+// ErrSchemaValidationFailed is returned when validation of a message against a schema fails.
+var ErrSchemaValidationFailed = errors.New("schema validation failed")
+
+// ErrSchemaSerializationFailed is returned when serialization of a message fails.
+var ErrSchemaSerializationFailed = errors.New("schema serialization failed")
+
+// ErrSchemaDeserializationFailed is returned when deserialization of a message fails.
+var ErrSchemaDeserializationFailed = errors.New("schema deserialization failed")
+
+// ErrInvalidJSONSchema is returned when the configured JSON schema is invalid.
+var ErrInvalidJSONSchema = errors.New("invalid JSON schema")
+
+// ErrInvalidAvroSchema is returned when the configured Avro schema fails to parse.
+var ErrInvalidAvroSchema = errors.New("invalid Avro schema")
+serde/avro_serde.go:41: File is not `gofumpt`-ed (gofumpt)
+
+serde/json_serde.go:69: File is not `gofumpt`-ed (gofumpt)
+
+serde/serde.go:108: File is not `gofumpt`-ed (gofumpt)
+
+logging/loggingerrors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
+package logging
+
+import (
+	"errors"
+)
+
+var (
+	ErrServiceNameNotSet          = errors.New("service name not set")
+	ErrInstrumentationScopeNotSet = errors.New("instrumentation scope not set")
+)
+databus_errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
+package databus
+
+import "fmt"
+
+// ErrNotYetImplemented is returned when a function is not yet implemented.
+// This is a temporary error and will be removed for production.
+var ErrNotYetImplemented = fmt.Errorf("not yet implemented")
+
+// ErrInvalidDatabusType is returned when the data bus type is invalid.
+var ErrInvalidDatabusType = fmt.Errorf("invalid data bus type")
+
+// ErrInvalidSubscriber is returned when the subscriber is not initialized.
+var ErrInvalidSubscriber = fmt.Errorf("unitialized subscriber")
+
+// ErrInvalidPublisher is returned when the publisher is not initialized.
+var ErrInvalidPublisher = fmt.Errorf("unitialized publisher")
+
+// ErrInvalidSerde is returned when the serde is not initialized.
+var ErrInvalidSerde = fmt.Errorf("unitialized serde")
+
+// ErrNonExistentTopic is returned when the topic for the configured schema does not exist.
+var ErrNonExistentTopic = fmt.Errorf("topic does not exist")
+
+// ErrUninitializedClient is returned when the client is not initialized.
+var ErrUninitializedClient = fmt.Errorf("uninitialized client")
+
+// ErrInvalidOverride is returned when the overrides are invalid for the environment.
+var ErrInvalidOverride = fmt.Errorf("invalid client override")
+
+// ErrFailedToDeserializeMessage is returned when a message cannot be deserialized from the data bus.
+var ErrFailedToDeserializeMessage = fmt.Errorf("failed to deserialize message")
+
+// ErrNoVersionHeader is returned when the read message does not have a version header.
+var ErrNoVersionHeader = fmt.Errorf("no version header")
+logging/kafkaheadercarrier_test.go:29:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)
+	assert.Equal(t, kgo.RecordHeader{Key: "foo", Value: []byte("bar")}, carrier[0]) //nolint:gosec // length was checked above
+	                                                                                ^
+logging/kafkaheadercarrier_test.go:30:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)
+	assert.Equal(t, kgo.RecordHeader{Key: "baz", Value: []byte("qux")}, carrier[1]) //nolint:gosec // length was checked above
+	                                                                                ^

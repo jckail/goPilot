@@ -1,0 +1,103 @@
+file_path:  /home/ec2-user/projects/helpersPrivate/goHelpers/results/codeRun.txt
+
+ Fetching Assistant:  goBot
+
+ Found:  goBot
+/home/ec2-user/projects/helpersPrivate/goHelpers/results/codeRun.txt
+The file prompt.txt was not found.
+trying: /home/ec2-user/projects/helpersPrivate/goHelpers/results/codeRun.txt
+['2023/11/08 06:07:33 Failed to initialize client: gcr.InitClient: failed to initialize TelemetryConfig: InitTelemetryConfig: loadAConfig Failed [config.go calling fetchJSONFromS3: Failed to load from S3 to bytes: failed to get object from S3: ExpiredToken: The provided token has expired.', 'status code: 400, request id: 2X079A5AQ3RJH0QD, host id: 17mW/fQpnBpreUX5LIR8oG87d9431OztroAP3Z2kdAfycRY2O3poEE8sE0PStXnB/o+IgCj63u0=]']
+2 errors found
+
+ Thread Created:  thread_sKFZA7n67QxrXDDY1Cew8RU5
+view thread here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_sKFZA7n67QxrXDDY1Cew8RU5
+
+ Message Created:  msg_xrxKP6GUgYTIIFDa2F8pLBny
+
+ Run Created:  run_MRRJyUQPXmsRI9uZJp2WXFAT
+Status: in_progress sleeping for 10 seconds total wait: 15 seconds
+Status: in_progress sleeping for 10 seconds total wait: 25 seconds
+
+ Ai Response completed! 
+ 
+
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_sKFZA7n67QxrXDDY1Cew8RU5 
+ 
+
+file_path:  /home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
+
+ Fetching Assistant:  goBot
+
+ Found:  goBot
+/home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
+The file prompt.txt was not found.
+trying: /home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
+['gcr/app.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'return fmt.Errorf("databus.go WriteConfig failed %w", err)', 'return fmt.Errorf("databus.go removeConfig failed %w", err)', 'return nil, fmt.Errorf("InitAppConfig: %w [%s]", ErrInvalidGcrType, err.Error())', 'return nil, fmt.Errorf("InitAppConfig: %w [%s]", ErrInitConfigLoad, err.Error())', 'return nil, fmt.Errorf("InitAppConfig: %w [%s]", ErrInitConfigvalidate, err.Error())', 'gcr/auth.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'return nil, fmt.Errorf("failed to marshal authenticationType of %s, %w", at, err)', 'return fmt.Errorf("failed to unmarshal []byte to AuthType! %w", err)', 'gcr/aws.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'return nil, fmt.Errorf("failed to create session: %w", err)', 'CredentialsChainVerboseErrors: aws.Bool(true),', 'return nil, fmt.Errorf("failed to create AWS session: %w", err)', 'return nil, fmt.Errorf("error initializing s3Config: %w", err)', 'return nil, fmt.Errorf("failed to get object from S3: %w", err)', 'return nil, fmt.Errorf("failed to copy body to buffer: %w", err)', 'return fmt.Errorf("initS3Config failed: %w", err)', 'return fmt.Errorf("json.Marshal failed: %w", err)', 'return fmt.Errorf("putObject failed: %w", err)', '// \t\treturn fmt.Errorf("error initializing s3Config: %w", err)', '// \t\treturn fmt.Errorf("failed to delete object from S3: %w", err)', 'gcr/errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'ErrInitConfigBase     = errors.New("SetBaseConfig Failed")', 'ErrInitConfigLoad     = errors.New("loadAConfig Failed")', 'ErrInitConfigvalidate = errors.New("validate Failed")', 'ErrFailedToMatchGcrType                     = errors.New("SetBaseConfig failed to match GcrType")', 'gcr/export_test.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'gcr/app.go:103: File is not `gofumpt`-ed (gofumpt)', 'gcr/auth.go:72: File is not `gofumpt`-ed (gofumpt)', 'gcr/aws.go:148: File is not `gofumpt`-ed (gofumpt)', 'serde/serde_errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)', '// ErrSchemaValidationFailed is returned when validation of a message against a schema fails.', 'var ErrSchemaValidationFailed = errors.New("schema validation failed")', '// ErrSchemaSerializationFailed is returned when serialization of a message fails.', 'var ErrSchemaSerializationFailed = errors.New("schema serialization failed")', '// ErrSchemaDeserializationFailed is returned when deserialization of a message fails.', 'var ErrSchemaDeserializationFailed = errors.New("schema deserialization failed")', 'logging/kafkaheadercarrier_test.go:29:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)', 'logging/kafkaheadercarrier_test.go:30:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)']
+39 errors found
+
+ Thread Created:  thread_uWKCOKSUyQp3NwkPnFV5iti9
+view thread here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_uWKCOKSUyQp3NwkPnFV5iti9
+
+ Message Created:  msg_4c4Z45eJZXHjQFwhd4nLwKMm
+
+ Run Created:  run_DTdKy8Hr98jxBFPNSl2M08Vq
+Status: in_progress sleeping for 10 seconds total wait: 15 seconds
+Status: in_progress sleeping for 10 seconds total wait: 25 seconds
+
+ Ai Response completed! 
+ 
+
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_uWKCOKSUyQp3NwkPnFV5iti9 
+ 
+
+file_path:  /home/ec2-user/projects/helpersPrivate/goHelpers/results/testOutput.txt
+
+ Fetching Assistant:  goBot
+
+ Found:  goBot
+/home/ec2-user/projects/helpersPrivate/goHelpers/results/testOutput.txt
+The file prompt.txt was not found.
+trying: /home/ec2-user/projects/helpersPrivate/goHelpers/results/testOutput.txt
+[]
+No errors found
+
+ Thread Created:  thread_abT9I88x6k5Y0QZrPuGMVd7g
+view thread here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_abT9I88x6k5Y0QZrPuGMVd7g
+
+ Message Created:  msg_4tDaoqPlJuX9oEV1PdVDLqOf
+
+ Run Created:  run_VxQkQ0QZJCBesHybHIDhkwv9
+Status: in_progress sleeping for 10 seconds total wait: 15 seconds
+
+ Ai Response completed! 
+ 
+
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_abT9I88x6k5Y0QZrPuGMVd7g 
+ 
+
+file_path:  /home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
+
+ Fetching Assistant:  goBot
+
+ Found:  goBot
+/home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
+The file prompt.txt was not found.
+trying: /home/ec2-user/projects/helpersPrivate/goHelpers/results/lintOutput.txt
+['serde/avro_serde.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'return nil, fmt.Errorf("failed to parse avro schema! Error: [%s] %w", err.Error(), ErrInvalidAvroSchema)', 'return nil, fmt.Errorf("failed to serialize avro schema! Error: [%s] %w", err.Error(), ErrSchemaSerializationFailed)', 'return fmt.Errorf("failed to deserialize avro schema! Error: [%s] %w", err.Error(), ErrSchemaDeserializationFailed)', 'serde/serde.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'return nil, fmt.Errorf("failed to initialize messageserde: %w", err)', 'return nil, fmt.Errorf("failed to load schema version %s: %w", schemaVersion, err)', 'return fmt.Errorf("failed to get serde for schema version %s: %w", schemaVersion, err)', 'return fmt.Errorf("failed to deserialize data into object: %w", err)', 'return nil, fmt.Errorf("failed to get schema configuration for name %s and version %s: %w",', 'return nil, fmt.Errorf("failed to initialize serde from config for version %s: %w", version, err)', 'return nil, fmt.Errorf("%w %s", ErrUnknownSerialType, errMsg)', 'serde/json_serde.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)', 'return nil, fmt.Errorf("failed to compile json schema! Error: [%s] %w", err.Error(), ErrInvalidJSONSchema)', 'return nil, fmt.Errorf("failed to marshal object! Error %s: %w", err.Error(), ErrSchemaSerializationFailed)', 'return nil, fmt.Errorf("failed to validate json schema! Error: [%s] %w", err.Error(), ErrSchemaValidationFailed)', 'return nil, fmt.Errorf("returned json schema is invalid! Error: [%s] %w", res.Errors(), ErrSchemaValidationFailed)', 'return fmt.Errorf("failed to unmarshal incoming json! Error %s: %w", err.Error(), ErrSchemaDeserializationFailed)', 'return fmt.Errorf("failed to deserialze json! Error: [%s] %w", err.Error(), ErrSchemaValidationFailed)', 'return fmt.Errorf("failed to deserialze json! Error: [%s] %w", res.Errors(), ErrSchemaValidationFailed)', 'serde/serde_errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)', '// ErrSchemaValidationFailed is returned when validation of a message against a schema fails.', 'var ErrSchemaValidationFailed = errors.New("schema validation failed")', '// ErrSchemaSerializationFailed is returned when serialization of a message fails.', 'var ErrSchemaSerializationFailed = errors.New("schema serialization failed")', '// ErrSchemaDeserializationFailed is returned when deserialization of a message fails.', 'var ErrSchemaDeserializationFailed = errors.New("schema deserialization failed")', 'serde/avro_serde.go:41: File is not `gofumpt`-ed (gofumpt)', 'serde/json_serde.go:69: File is not `gofumpt`-ed (gofumpt)', 'serde/serde.go:108: File is not `gofumpt`-ed (gofumpt)', 'logging/loggingerrors.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'databus_errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)', 'var ErrNotYetImplemented = fmt.Errorf("not yet implemented")', 'var ErrInvalidDatabusType = fmt.Errorf("invalid data bus type")', 'var ErrInvalidSubscriber = fmt.Errorf("unitialized subscriber")', 'var ErrInvalidPublisher = fmt.Errorf("unitialized publisher")', 'var ErrInvalidSerde = fmt.Errorf("unitialized serde")', 'var ErrNonExistentTopic = fmt.Errorf("topic does not exist")', 'var ErrUninitializedClient = fmt.Errorf("uninitialized client")', 'var ErrInvalidOverride = fmt.Errorf("invalid client override")', '// ErrFailedToDeserializeMessage is returned when a message cannot be deserialized from the data bus.', 'var ErrFailedToDeserializeMessage = fmt.Errorf("failed to deserialize message")', 'var ErrNoVersionHeader = fmt.Errorf("no version header")', 'logging/kafkaheadercarrier_test.go:29:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)', 'logging/kafkaheadercarrier_test.go:30:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)']
+45 errors found
+
+ Thread Created:  thread_Ja2IPXRA8DUGzu1jxU39d6hW
+view thread here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_Ja2IPXRA8DUGzu1jxU39d6hW
+
+ Message Created:  msg_qIDFtV4No3Fbg7z8bKtf0KSH
+
+ Run Created:  run_XmAp5lNtt461toLNST6rhVLb
+Status: in_progress sleeping for 10 seconds total wait: 15 seconds
+Status: in_progress sleeping for 10 seconds total wait: 25 seconds
+
+ Ai Response completed! 
+ 
+
+View response here:  https://platform.openai.com/playground?assistant=asst_6Jqvv49JQCXZrTLMnSBb8xNM&mode=assistant&thread=thread_Ja2IPXRA8DUGzu1jxU39d6hW 
+ 
+

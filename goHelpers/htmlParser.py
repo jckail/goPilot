@@ -98,6 +98,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     url = sys.argv[1]
-    outputdirectory = sys.argv[2]
+    goHelperDirectory = sys.argv[2]
     
-    main(url,outputdirectory)
+    main(url,goHelperDirectory)

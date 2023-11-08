@@ -1,0 +1,413 @@
+logging/telemetrylogger_init.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+package logging
+
+import (
+	"context"
+	"crypto/tls"
+	"fmt"
+	"time"
+
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdkTrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+)
+
+func initOtelTracerProvider(config TelemetryConfiguration, otelResource *resource.Resource, logger *zap.Logger) *sdkTrace.TracerProvider {
+	traceExporter := getSpanExporter(config.CollectorAddress, logger)
+
+	spanProcessor := sdkTrace.NewBatchSpanProcessor(traceExporter)
+	policy := config.SamplingPolicy
+
+	tracerProvider := sdkTrace.NewTracerProvider(
+		sdkTrace.WithSampler(policy),
+		sdkTrace.WithResource(otelResource),
+		sdkTrace.WithSpanProcessor(spanProcessor),
+	)
+
+	return tracerProvider
+}
+
+// create the opentelemetry span exporter. This is used to send telemetry data to the collector.
+// if connection to collector cannot be acquired then stdout exporter is returned.
+// if stdout exporter cannot be acquired then noop span exporter is returned.
+func getSpanExporter(collectorAddress string, logger *zap.Logger) sdkTrace.SpanExporter {
+	timeoutContext, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	defer cancel()
+
+	// try to obtain grpc connection
+	grpcConnection, connectionError := getCollectorConnection(collectorAddress, timeoutContext)
+	if connectionError == nil {
+		// initialize grpc span exporter
+		traceExporter, exporterErr := otlptracegrpc.New(timeoutContext, otlptracegrpc.WithGRPCConn(grpcConnection))
+		if exporterErr == nil {
+			return traceExporter
+		} else {
+			logger.Error(fmt.Errorf("could not start grpc span exporter: %w", exporterErr).Error())
+		}
+	} else {
+		logger.Error(fmt.Errorf("could not start grpc connection: %w", connectionError).Error())
+	}
+
+	// if could not create grpc exporter then create standard output exporter
+	traceExporter, stdoutTracerError := stdouttrace.New()
+	if stdoutTracerError != nil {
+		logger.Error(fmt.Errorf("could not start standard output span exporter: %w", stdoutTracerError).Error())
+
+		return otlptracegrpc.NewUnstarted()
+	}
+
+	return traceExporter
+}
+
+// create a gRPC connection to the collector.
+func getCollectorConnection(collectorAddress string, timeoutContext context.Context) (*grpc.ClientConn, error) {
+	// #nosec G402
+	creds := credentials.NewTLS(&tls.Config{InsecureSkipVerify: false})
+	// this does not fail gracefully, if the collector is not available
+	grpcConnection, err := grpc.DialContext(timeoutContext,
+		collectorAddress,
+		grpc.WithTransportCredentials(creds),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
+	}
+
+	return grpcConnection, nil
+}
+
+// getMetricProvider creates a new metric provider. The metrics provider, wraps the exporter; which will send meter data to the collector or stdout.
+func getMetricProvider(config TelemetryConfiguration, otelResource *resource.Resource, logger *zap.Logger) *sdkmetric.MeterProvider {
+	exp := getMetricExporter(config, logger)
+
+	return sdkmetric.NewMeterProvider(
+		sdkmetric.WithResource(otelResource),
+		sdkmetric.WithReader(
+			sdkmetric.NewPeriodicReader(
+				exp,
+				sdkmetric.WithInterval(config.MetricsSamplingInterval),
+			),
+		))
+}
+
+// getMetricExporter creates a new metric exporter. The exporter will send meter data to the collector or stdout.
+func getMetricExporter(config TelemetryConfiguration, logger *zap.Logger) sdkmetric.Exporter {
+	timeoutContext, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	defer cancel()
+
+	connection, err := getCollectorConnection(config.CollectorAddress, timeoutContext)
+	if err != nil {
+		logger.Error(fmt.Errorf("failed to create gRPC connection to collector. metrics to route to stdout: %w", err).Error())
+
+		// always returns nil error
+		stdoutExporter, _ := stdoutmetric.New()
+
+		return stdoutExporter
+	}
+
+	exporter, err := otlpmetricgrpc.New(timeoutContext, otlpmetricgrpc.WithGRPCConn(connection))
+	if err != nil {
+		logger.Error(fmt.Errorf("failed to create GRPC Metric Exporter. metrics to route to stdout: %w", err).Error())
+
+		// always returns nil error
+		stdoutExporter, _ := stdoutmetric.New()
+
+		return stdoutExporter
+	}
+
+	return exporter
+}
+logging/metricsmanager.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+package logging
+
+import (
+	"context"
+	"fmt"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/noop"
+	"go.uber.org/zap"
+)
+
+type metricsManager struct {
+	metricProvider metric.MeterProvider
+	counters       map[string]metric.Int64Counter
+	logger         *zap.Logger
+	meter          metric.Meter
+}
+
+// metric names.
+// these metrics can be increased using logging.TelemetryLogger.
+const (
+	// counts messages send to kafka.
+	msgPublishedCounter = "message_published_counter"
+
+	// counts messages received from kafka.
+	msgReceivedCounter = "message_received_counter"
+
+	// counter increased each time the client app try to connect to Databus (kafka or other platform).
+	databusConnectionAttemptCounter = "databus_connection_attempt_counter"
+
+	// counter increased each time the client app try to disconnect from Databus (kafka or other platform).
+	databusDisconnectionAttemptCounter = "databus_disconnect_attempt_counter"
+
+	// counter increased each time the Databus SDK is initialized by client.
+	databusClientInitializationCounter = "databus_client_initialization_counter"
+)
+
+func newMetricsManager(config TelemetryConfiguration, meterProvider metric.MeterProvider, logger *zap.Logger) *metricsManager {
+	manager := metricsManager{}
+	manager.metricProvider = meterProvider
+	manager.counters = make(map[string]metric.Int64Counter)
+	manager.logger = logger
+
+	attributes := metric.WithInstrumentationAttributes(
+		attribute.String("TopicName", config.TopicName))
+
+	manager.meter = meterProvider.Meter(config.InstrumentationScope, attributes)
+
+	manager.initializeCounter(msgPublishedCounter)
+	manager.initializeCounter(msgReceivedCounter)
+	manager.initializeCounter(databusConnectionAttemptCounter)
+	manager.initializeCounter(databusDisconnectionAttemptCounter)
+	manager.initializeCounter(databusClientInitializationCounter)
+
+	return &manager
+}
+
+func (manager *metricsManager) initializeCounter(name string) {
+	counter, err := manager.meter.Int64Counter(name)
+	if err != nil {
+		manager.logger.Error(fmt.Errorf("could not create counter metric: %w", err).Error())
+
+		counter = noop.Int64Counter{}
+	}
+
+	manager.counters[name] = counter
+}
+
+func (manager *metricsManager) increaseCounter(ctx context.Context, counterName string, incrBy int64) {
+	counter := manager.counters[counterName]
+	if counter == nil {
+		manager.logger.Error(fmt.Sprintf("Counter %s not initialized!", counterName))
+	} else {
+		counter.Add(ctx, incrBy)
+	}
+}
+logging/kafkaheadercarrier.go:1: File is not `gci`-ed with --skip-generated -s standard -s default (gci)
+package logging
+
+import (
+	"github.com/twmb/franz-go/pkg/kgo"
+	"go.opentelemetry.io/otel/propagation"
+)
+
+// KafkaHeaderCarrier adapts kafka.Header to satisfy the propagation.TextMapCarrier interface.
+type KafkaHeaderCarrier []kgo.RecordHeader
+
+// Compile time check that KafkaHeaderCarrier implements the TextMapCarrier.
+var _ propagation.TextMapCarrier = &KafkaHeaderCarrier{}
+
+// Get returns the value associated with the passed key.
+func (khc *KafkaHeaderCarrier) Get(key string) string {
+	for _, h := range *khc {
+		if h.Key == key {
+			return string(h.Value)
+		}
+	}
+
+	return ""
+}
+
+// Set stores the key-value pair.
+func (khc *KafkaHeaderCarrier) Set(key string, value string) {
+	for i, h := range *khc {
+		if h.Key == key {
+			(*khc)[i].Value = []byte(value)
+
+			return
+		}
+	}
+
+	*khc = append(*khc, kgo.RecordHeader{Key: key, Value: []byte(value)})
+}
+
+// Keys lists the keys stored in this carrier.
+func (khc *KafkaHeaderCarrier) Keys() []string {
+	keys := make([]string, 0, len(*khc))
+	for _, h := range *khc {
+		keys = append(keys, h.Key)
+	}
+
+	return keys
+}
+logging/loggingerrors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
+package logging
+
+import (
+	"errors"
+)
+
+var (
+	ErrServiceNameNotSet          = errors.New("service name not set")
+	ErrInstrumentationScopeNotSet = errors.New("instrumentation scope not set")
+)
+logging/kafkaheadercarrier.go:47: File is not `gofumpt`-ed (gofumpt)
+
+logging/loggingerrors.go:11: File is not `gofumpt`-ed (gofumpt)
+
+logging/metricsmanager.go:78: File is not `gofumpt`-ed (gofumpt)
+
+gcr/errors.go:1: File is not `gofmt`-ed with `-s` (gofmt)
+package gcr
+
+import "errors"
+
+// This File contains all errors for the GCR package.
+
+// GCR.
+var (
+	ErrMissingAppOwner    = errors.New("app owner not found in appconfig .json file ")
+	ErrMissingAppName     = errors.New("app name not found in appconfig .json file ")
+	ErrInvalidGcrType     = errors.New("invalid GcrType in config.json file ")
+	ErrInitConfigBase     = errors.New("SetBaseConfig Failed")
+	ErrInitConfigLoad     = errors.New("loadAConfig Failed")
+	ErrInitConfigvalidate = errors.New("validate Failed")
+)
+
+// BASEConfig.
+var (
+	ErrBaseConfigNil                            = errors.New("BaseConfig is nil")
+	ErrFailedToMatchGcrType                     = errors.New("SetBaseConfig failed to match GcrType")
+	ErrValidateBaseConfig                       = errors.New("baseconfig failed to validate")
+	ErrConfigPathOverrideLocalCannotBeEmpty     = errors.New("configPathOverride cannot be empty for Local config")
+	ErrConfigPathOverrideNonLocalCannotBeEmpty  = errors.New("path cannot be empty for non-Local config")
+	ErrMissingBaseConfig                        = errors.New("baseconfig not found apart of config")
+	ErrBaseConfigInvalidConfigLoc               = errors.New("configLoc Is invalid")
+	ErrBaseConfigBlankConfigPath                = errors.New("ConfigPath Is blank")
+	ErrBaseConfigConfigPathMissingJSONExtention = errors.New("ConfigPath Is does not have .json")
+	ErrBaseConfigBlankFileName                  = errors.New("ConfigPath Is blank")
+	ErrBaseConfigInvalidPath                    = errors.New("the path is invalid")
+)
+
+// DATABUS.
+var (
+	// ErrInvalidDBConfig is returned when the databus configuration is invalid.
+	ErrInvalidDBConfig = errors.New("invalid databus configuration")
+	// ErrInvalidBusType is returned when the message bus type is invalid.
+	ErrInvalidBusType = errors.New("invalid message bus type")
+)
+
+// ENV.
+// ErrNoMappedEnvironment is returned when the environment variable is not set.
+var (
+	ErrNoMappedEnvironment = errors.New("no mapped environment")
+)
+
+// MOCKS.
+// ErrMockEnvProd is returned when the given envType is Prod.
+var (
+	ErrMockEnvProd = errors.New("prod is not a valid configLoc for a mock config")
+)
+
+/// Options
+
+// ErrOverridesNil is returned when the overrides object is nil.
+var (
+	ErrInputSliceNilOrEmpty       = errors.New("input slice is nil or empty")
+	ErrStringEmptyOrWhitespace    = errors.New("string is empty or only contains whitespace")
+	ErrGeneratingPathCombinations = errors.New("error generating path combinations")
+	ErrUnrecognizedConfigPath     = errors.New("unrecognized configuration path")
+	ErrOverridesNil               = errors.New("config overrides are nil")
+)
+
+// / Schema
+// ErrInvalidSerialType is the error message when an invalid schema type is used.
+var (
+	ErrInvalidSerialType = errors.New("invalid schema type")
+	// ErrInvalidSchemaConfig is the error message when an invalid schema configuration is used.
+	ErrInvalidSchemaConfig = errors.New("invalid schema configuration")
+)
+
+// Validations.
+var (
+	// ErrClientEmptyName is returned when the schema name is empty.
+	ErrClientEmptyName = errors.New("name cannot be empty")
+	// ErrClientEmptyVersion is returned when the schema version is empty.
+	ErrClientEmptyVersion = errors.New("version cannot be empty")
+	// ErrClientEnvUnknown is returned when the client environment is unknown.
+	ErrClientEnvUnknown = errors.New("clientEnv cannot be empty or unknown")
+	// ErrEmptySchemaName is returned when the schema name is empty.
+	ErrEmptySchemaName = errors.New("schema Name is empty: ")
+	// ErrDoubleUnderscoreInSchema is returned when the schema name contains __ or two consecutive underscore characters.
+	ErrDoubleUnderscoreInSchema = errors.New("schema name contains __ or two consecutive underscore characters")
+	// ErrInvalidCharacterInSchema is returned when the schema name contains a character that is not a letter.
+	ErrInvalidCharacterInSchema = errors.New("schema name contains a character that is not a letter")
+	// ErrUpperCaseInSchema is returned when the schema name contains an uppercase letter.
+	ErrUpperCaseInSchema = errors.New("schema name contains an uppercase letter, must be all lowercase")
+	// ErrInvalidSchemaVersionParts is returned when the schema version is not divided into exactly 2 parts.
+	ErrInvalidSchemaVersionParts = errors.New("schemaVersion must be divided into exactly 2 parts")
+	// ErrInvalidSchemaVersionCharacter is returned when the schema version contains a non-integer character.
+	ErrInvalidSchemaVersionCharacter = errors.New("invalid character found; it is not an integer")
+	// ErrEmptySchemaVersion is returned when the schema version is empty.
+	ErrEmptySchemaVersion = errors.New("schema Version is empty: ")
+	// ErrSchemaVersionDoesNotStartWithV is returned when the schema version does not start with a v.
+	ErrSchemaVersionDoesNotStartWithV = errors.New("schema Version Does not start with v:  ")
+	// ErrEmptyEnvValue is returned when the environment value is empty.
+	ErrEmptyEnvValue = errors.New("environment value is empty")
+)
+
+// Auth.
+
+// ErrInvalidAuthType is the error message for when an invalid authentication type is used.
+var (
+	ErrInvalidAuthType = errors.New("invalid authentication type")
+)
+
+// Telemetry.
+var (
+	// ErrMissingServiceName is returned when the service name is empty.
+	ErrMissingServiceName = errors.New("service name is empty")
+	// ErrMissingCollectorAddress is returned when the collector address is empty.
+	ErrMissingCollectorAddress = errors.New("collector address cannot be empty")
+	// ErrMissingInstrumentationScope is returned when the instrumentation scope is empty.
+	ErrMissingInstrumentationScope = errors.New("instrumentation scope cannot be empty")
+	// ErrMissingSchemaName is returned when the service name is empty.
+	ErrMissingSchemaName = errors.New("schema name cannot be empty")
+	// ErrInvalidSamplingPolicyType is returned when the sampling policy type is invalid.
+	ErrInvalidSamplingPolicyType = errors.New("invalid sampling policy type")
+)
+gcr/export_test.go:1: File is not `gofmt`-ed with `-s` (gofmt)
+package gcr
+
+var (
+	ValidateClientEnv           = validateClientEnv
+	ValidateSchemaVersion       = validateSchemaVersion
+	ValidateSchemaName          = validateSchemaName
+	RemoveConfig                = removeConfig
+	WriteConfig                 = writeConfig
+	GenerateMockAppConfig       = generateMockAppConfig
+	GenerateMockSchemaConfig    = generateMockSchemaConfig
+	GenerateMockDatabusConfig   = generateMockDatabusConfig
+	GenerateMockTelemetryConfig = generateMockTelemetryConfig
+	ParseConfigPathOverride     = (ConfigPathOverride).parseConfigPathOverride
+	ToMap                       = (*Overrides).toMap
+	GetConfigLoc                = (*BaseConfig).getConfigLoc
+	GetConfigPath               = (*BaseConfig).getConfigPath
+	LoadAConfig                 = (*Config).loadAConfig
+	CreateGcrConfig             = createGcrConfig
+)
+logging/kafkaheadercarrier_test.go:29:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)
+	assert.Equal(t, kgo.RecordHeader{Key: "foo", Value: []byte("bar")}, carrier[0]) //nolint:gosec // length was checked above
+	                                                                                ^
+logging/kafkaheadercarrier_test.go:30:82: directive `//nolint:gosec // length was checked above` is unused for linter "gosec" (nolintlint)
+	assert.Equal(t, kgo.RecordHeader{Key: "baz", Value: []byte("qux")}, carrier[1]) //nolint:gosec // length was checked above
+	                                                                                ^
