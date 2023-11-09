@@ -15,6 +15,9 @@ Before using the CLI, ensure you have the following installed:
 
 Execute the CLI script with the desired options:
 
+### Most Commonly used updates contexts, runs code, runs lint, runs tests:
+```./localtest/run.sh -u true -r true -n true -t true```
+
 ### Run the script with a specified directory and enable code running:
 ```./cli_script.sh -d ~/myGoProject -r true```
 

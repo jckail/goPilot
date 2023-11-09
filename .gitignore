@@ -1,2 +1,6 @@
 goHelpers/uploads/*
+goHelpers/results/*
+goHelpers/additionalcontext/*
 .env
+
+goHelpers/__pycache__/*
