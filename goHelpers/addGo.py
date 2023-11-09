@@ -290,15 +290,14 @@ class AssistantManager:
 
 # Example of how to use the class
 if __name__ == "__main__":
-    apiKey = "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"
     model = "gpt-4-1106-preview"
     # file_path = "/Users/jkail/projects/databus/gcr/"
     # file_name = "gcr.txt"
     # uploadFile = file_path + file_name
 
-    assistantManager = AssistantManager(apiKey, [uploadFile], "goBot")
+    #assistantManager = AssistantManager(apiKey, [uploadFile], "goBot")
 
     # Use the methods of the AssistantManager class
     # assistantManager.deleteAllFiles()
     # assistantManager.removeFilesFromAssistants()
-    assistantManager.uploadFilestoAssistant()
+    #assistantManager.uploadFilestoAssistant()
