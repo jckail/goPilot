@@ -2,70 +2,19 @@ This go project is called: .'s here is it's current directory tree.
 .'s current Go Packages are: logging, serde, gcr, and databus
 
 ./
-│   ├── configure_local.sh
-│   ├── coverage.txt
-│   ├── pre-commit
+│   ├── docker-compose.yml
+│   ├── go-mod-tidy.sh
+│   ├── golangci.yml
 │   ├── Makefile
 │   ├── README.md
-│   ├── databus.go
-│   ├── databus_errors.go
-│   ├── export_test.go
-│   ├── go.sum
-│   ├── kafka.go
-│   ├── publisher.go
-│   ├── subscriber.go
-│   ├── databus_test.go
-│   ├── databusoptions.go
-│   ├── go.mod
-│   ├── integration_test.go
-│   ├── databus_go.txt
-│   ├── main_go.txt
-│   ├── logging_go.txt
-│   ├── serde_go.txt
-│   └── gcr_go.txt
+│   ├── go.work.sum
+│   ├── go.work
+│   ├── databus-example
+│   └── main_go.txt
 ├── localtest/
-│   ├── test_app.json
-│   ├── notes.txt
-│   ├── kakfa.json
-│   ├── test_avro.json
-│   ├── test_json.json
-│   ├── REVIVEsettings.json
-│   ├── golintsettings.json
-│   ├── garfield_billing__0_0.json
-│   ├── all_run.sh
 │   └── run.sh
-│   ├── run/
-│   │   ├── run.go
-│   │   └── run_go.txt
-├── logging/
-│   ├── kafkaheadercarrier.go
-│   ├── kafkaheadercarrier_test.go
-│   ├── loggingerrors.go
-│   ├── metricsmanager.go
-│   ├── spanwrapper.go
-│   ├── telemetrylogger.go
-│   ├── telemetrylogger_init.go
-│   ├── telemetrylogger_test.go
-│   └── testfakes_test.go
-├── serde/
-│   ├── json_serde.go
-│   ├── avro_serde.go
-│   ├── serde.go
-│   ├── serde_errors.go
-│   └── serde_test.go
-├── gcr/
-│   ├── app.go
-│   ├── auth.go
-│   ├── aws.go
-│   ├── databus.go
-│   ├── env.go
-│   ├── schema.go
-│   ├── baseconfig.go
-│   ├── errors.go
-│   ├── export_test.go
-│   ├── gcr.go
-│   ├── gcr_test.go
-│   ├── mocks.go
-│   ├── options.go
-│   ├── telemetry.go
-│   └── validations.go
+├── example/
+│   ├── go.mod
+│   ├── go.sum
+│   ├── main.go
+│   └── metrics.go
