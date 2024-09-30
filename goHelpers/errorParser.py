@@ -26,7 +26,7 @@ if __name__ == "__main__":
     logger.info("%s", file_path)
     print("file_path: ",file_path)
 
-    #goHelperDirectory = "/home/ec2-user/projects/helpersPrivate/goHelpers/"
+    #goHelperDirectory = "/home/ec2-user/projects/goHelper/goHelpers/"
     # file_path = goHelperDirectory + "results/results.txt"
     aM = addGo.AssistantManager( "goBot", file_path)
     addContent = main(file_path)

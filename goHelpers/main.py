@@ -59,7 +59,7 @@ if __name__ == "__main__":
             file.write(f"'{package_name}._go.txt' contains {fs}\n")
     files.append(package_map_context)
     
-    _packages = ['logging', 'serde', 'gcr', 'databus']
+    _packages = ['logging', 'serde']
 
     # Example usage:
     directoryTree.save_dir_tree_to_file(directory, goHelperDirectory+'results/directory_tree.txt',packages=_packages)

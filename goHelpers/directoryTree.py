@@ -3,7 +3,7 @@
 
 # # Main Method
 # if __name__ == '__main__':
-#     display_tree("/home/ec2-user/projects/databus/")
+#     display_tree("/home/ec2-user/projects/")
 
 
 
@@ -73,12 +73,13 @@ def append_files_with_blurb(file1, file2, final_file, blurb):
 
 
 if __name__ == "__main__":
+    project_path = '/home/ec2-user/projects/'
     # Example usage:
     # exclusions = ['unwanted_directory', 'unwanted_file.go']
-    _packages = ['logging', 'serde', 'gcr', 'databus']
+    _packages = ['logging', 'serde']
 
     # Example usage:
-    save_dir_tree_to_file('/home/ec2-user/projects/databus/', 'results/directory_tree.txt',packages=_packages)
+    save_dir_tree_to_file('/home/ec2-user/projects/', 'results/directory_tree.txt',packages=_packages)
 
     # Example usage:
     replace_suffix_in_file('results/directory_tree.txt', 'results/directory_tree_updated.txt')

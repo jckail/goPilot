@@ -8,9 +8,9 @@ RunCode=false
 RunLint=false
 RunTest=false
 DeleteThreadsTxt=true
-CodeOutput="${HOME}/projects/helpersPrivate/goHelpers/results/codeRun.txt"
-LintOutput="${HOME}/projects/helpersPrivate/goHelpers/results/lintOutput.txt"
-TestOutput="${HOME}/projects/helpersPrivate/goHelpers/results/testOutput.txt"
+CodeOutput="${HOME}/projects/goHelper/goHelpers/results/codeRun.txt"
+LintOutput="${HOME}/projects/goHelper/goHelpers/results/lintOutput.txt"
+TestOutput="${HOME}/projects/goHelper/goHelpers/results/testOutput.txt"
 
 
 # Function to show usage
@@ -62,10 +62,10 @@ while getopts ":d:u:a:r:n:t:c:l:o:" opt; do
 done
 
 # Run the specified shell script
-~/projects/helpersPrivate/goHelpers/all_run.sh -d "$DIRECTORY" -u "$UpdateContext" -a "$DeleteAll"
+~/projects/goHelper/goHelpers/all_run.sh -d "$DIRECTORY" -u "$UpdateContext" -a "$DeleteAll"
 
 # Path to the file
-FILE_PATH="${HOME}/projects/helpersPrivate/goHelpers/results/chatThreads.txt"
+FILE_PATH="${HOME}/projects/goHelper/goHelpers/results/chatThreads.txt"
 if [[ "$DeleteThreadsTxt" == "true" ]]; then
     # Check if the file exists
     if [ -f "$FILE_PATH" ]; then
@@ -81,7 +81,7 @@ fi
 if [[ "$RunCode" == "true" ]]; then
   echo "Running code..."
   go run localtest/run/run.go > "$CodeOutput" 2>&1
-  if ! python3 ~/projects/helpersPrivate/goHelpers/errorParser.py "$CodeOutput" >> "${HOME}/projects/helpersPrivate/goHelpers/results/chatThreads.txt"; then
+  if ! python3 ~/projects/goHelper/goHelpers/errorParser.py "$CodeOutput" >> "${HOME}/projects/goHelper/goHelpers/results/chatThreads.txt"; then
       echo "errorParser failed to execute for CodeOutput" >&2
   fi
 fi
@@ -89,7 +89,7 @@ fi
 if [[ "$RunLint" == "true" ]]; then
   echo "Running lints..."
   golangci-lint run --timeout=5m > "$LintOutput" 2>&1
-  if ! python3 ~/projects/helpersPrivate/goHelpers/errorParser.py "$LintOutput" >> "${HOME}/projects/helpersPrivate/goHelpers/results/chatThreads.txt"; then
+  if ! python3 ~/projects/goHelper/goHelpers/errorParser.py "$LintOutput" >> "${HOME}/projects/goHelper/goHelpers/results/chatThreads.txt"; then
       echo "errorParser failed to execute for LintOutput" >&2
   fi
 fi
@@ -97,12 +97,12 @@ fi
 if [[ "$RunTest" == "true" ]]; then
   echo "Running tests..." 
   go test ./... -coverprofile=coverage.txt -covermode count -timeout 2m > "$TestOutput" 2>&1
-  if ! python3 ~/projects/helpersPrivate/goHelpers/errorParser.py "$TestOutput" >> "${HOME}/projects/helpersPrivate/goHelpers/results/chatThreads.txt"; then
+  if ! python3 ~/projects/goHelper/goHelpers/errorParser.py "$TestOutput" >> "${HOME}/projects/goHelper/goHelpers/results/chatThreads.txt"; then
       echo "errorParser failed to execute for TestOutput" >&2
   fi
 fi
 
 echo "Running Thread Parsers..."
-  if ! python3 ~/projects/helpersPrivate/goHelpers/chatParse.py "${HOME}/projects/helpersPrivate/goHelpers/results/chatThreads.txt"; then
+  if ! python3 ~/projects/goHelper/goHelpers/chatParse.py "${HOME}/projects/goHelper/goHelpers/results/chatThreads.txt"; then
       echo "chatParse failed to execute for chatThreads" >&2
   fi

@@ -7,7 +7,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 # Hard-code the working directory to the current directory when this Makefile is run
-WORKINGDIRECTORY=/home/ec2-user/projects/helpersPrivate/goHelpers
+WORKINGDIRECTORY=/home/ec2-user/projects/goHelper/goHelpers
 
 # Assign the argument to a variable
 URL=$1

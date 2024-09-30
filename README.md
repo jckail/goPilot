@@ -1,4 +1,4 @@
-# GoHelpers CLI Tool
+# goPilot CLI Tool
 
 This CLI tool is designed to facilitate various operations such as updating context, deleting files, running code, linting, and testing within the Go development environment. It also provides the ability to control output locations for code execution, linting, and test results.
 
@@ -7,7 +7,7 @@ This CLI tool is designed to facilitate various operations such as updating cont
 Before using the CLI, ensure you have the following installed:
 
 - Tweak `localtest/run.sh` so that it runs i with your runners.
-- Python 3 with `errorParser.py` and `chatParse.py` scripts located at `~/projects/helpersPrivate/goHelpers/`
+- Python 3 with `errorParser.py` and `chatParse.py` scripts located at `~/projects/goHelper/goHelpers/`
 - Golang with `golangci-lint` and `go test` tools installed
 - Run `export OPENAI_API_KEY="your_api_key"`
 
@@ -40,9 +40,9 @@ Execute the CLI script with the desired options:
 - `-r`: Run code (set to `true` or `false`, default: `false`).
 - `-n`: Run linter (set to `true` or `false`, default: `false`).
 - `-t`: Run tests (set to `true` or `false`, default: `false`).
-- `-c`: Path for code execution output (default: `~/projects/helpersPrivate/goHelpers/results/codeRun.txt`).
-- `-l`: Path for linting output (default: `~/projects/helpersPrivate/goHelpers/results/lintOutput.txt`).
-- `-o`: Path for testing output (default: `~/projects/helpersPrivate/goHelpers/results/testOutput.txt`).
+- `-c`: Path for code execution output (default: `~/projects/goHelper/goHelpers/results/codeRun.txt`).
+- `-l`: Path for linting output (default: `~/projects/goHelper/goHelpers/results/lintOutput.txt`).
+- `-o`: Path for testing output (default: `~/projects/goHelper/goHelpers/results/testOutput.txt`).
 - `-x`: Delete the threads text file after execution (set to `true` or `false`, default: `true`).
 
 

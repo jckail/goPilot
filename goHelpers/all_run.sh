@@ -41,7 +41,7 @@ while getopts ":d:u:a:" opt; do
 done
 
 # Hard-code the working directory to the current directory when this Makefile is run
-WORKINGDIRECTORY=/home/ec2-user/projects/helpersPrivate/goHelpers
+WORKINGDIRECTORY=/home/ec2-user/projects/goHelper/goHelpers
 
 # Run the Python script with the two directories as arguments and the booleans
 python3 "$WORKINGDIRECTORY/main.py" "$DIRECTORY" "$WORKINGDIRECTORY" "$UpdateContext" "$DeleteAll" || echo "The python script failed to execute"
