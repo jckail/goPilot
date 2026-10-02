@@ -1,4 +1,5 @@
 import sys
+import os
 import requests
 from bs4 import BeautifulSoup
 
@@ -86,7 +87,9 @@ def fetchWebData(url,path):
     processed_text = process_html(html_content)
     # Use the URL to generate the output filename
     parsed_name = generate_filename_from_url(url)
-    output_filename =path+"additionalcontext/"+f"{parsed_name}_context.txt"
+    output_directory = os.path.join(path, "additionalcontext")
+    output_filename = os.path.join(output_directory, f"{parsed_name}_context.txt")
+    os.makedirs(output_directory, exist_ok=True)
     save_text_to_file(processed_text, output_filename)
     print(f"Processed text saved to {output_filename}")
 
@@ -94,10 +97,10 @@ def fetchWebData(url,path):
 # Replace the URL with the actual URL from which you want to fetch and process the HTML content
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        logger.error("Usage: python getter.py <directory>")
+        print("Usage: python htmlParser.py <URL> <helper-directory>", file=sys.stderr)
         sys.exit(1)
 
     url = sys.argv[1]
     goHelperDirectory = sys.argv[2]
     
-    main(url,goHelperDirectory)
+    fetchWebData(url,goHelperDirectory)
