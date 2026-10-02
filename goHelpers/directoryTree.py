@@ -46,13 +46,22 @@ def save_dir_tree_to_file(startpath, output_filepath, packages=None, exclude=Non
                 f.write('{}{}{}\n'.format(subindent, end_char, file))
 
 def replace_suffix_in_file(input_filepath, output_filepath):
-    with open(input_filepath, 'r') as f:
+    """Convert terminal Go file suffixes in generated tree entries only.
+
+    Other text, directory names and line endings remain byte-for-byte intact.
+    This legacy view does not replace the authoritative package map.
+    """
+    import re
+
+    with open(input_filepath, 'rb') as f:
         content = f.read()
 
-    # Replace the suffix
-    new_content = content.replace('.go', '_go.txt')
+    # Generated file lines start with tree indentation and a branch marker.
+    # A directory ends in '/', so it cannot match a terminal '.go' suffix.
+    file_entry = r'(?m)^((?:│   )+(?:├── |└── )[^\r\n]*)\.go(?=\r?$)'.encode('utf-8')
+    new_content = re.sub(file_entry, rb'\1_go.txt', content)
 
-    with open(output_filepath, 'w') as f:
+    with open(output_filepath, 'wb') as f:
         f.write(new_content)
 
 def append_files_with_blurb(file1, file2, final_file, blurb):
