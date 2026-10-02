@@ -27,6 +27,53 @@ class ConsolidationTests(unittest.TestCase):
                 self.assertEqual((root / name).read_bytes(), source.encode("utf-8"))
             return dict(packages), {Path(p).name: Path(p).read_text(encoding="utf-8") for p in outputs}
 
+    def test_context_is_reproducible_across_directory_enumeration(self):
+        sources = {
+            "b.go": "package demo\nfunc B() {}\n",
+            "a.go": "package demo\nfunc A() {}\n",
+            "alpha/second.go": "package demo\nfunc AlphaSecond() {}\n",
+            "alpha/first.go": "package demo\nfunc AlphaFirst() {}\n",
+            "alpha/other.go": "package alpha\nfunc Other() {}\n",
+            "beta/shared.go": "package demo\nfunc Beta() {}\n",
+            "beta/z.go": "package zeta\nfunc Z() {}\n",
+            "skip_test.go": "package demo\nfunc Excluded() {}\n",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, source in sources.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(source, encoding="utf-8")
+
+            def controlled_walk(path, reverse):
+                # Like os.walk(topdown=True), descent honors caller changes to dirs.
+                dirs = sorted((p.name for p in Path(path).iterdir() if p.is_dir()),
+                              reverse=reverse)
+                files = sorted((p.name for p in Path(path).iterdir() if p.is_file()),
+                               reverse=reverse)
+                yield str(path), dirs, files
+                for dirname in dirs:
+                    yield from controlled_walk(Path(path) / dirname, reverse)
+
+            snapshots = []
+            for reverse in (False, True):
+                with patch.object(getter.os, "walk", side_effect=lambda path: controlled_walk(path, reverse)):
+                    packages, outputs = getter.consolidate_go_files(directory)
+                snapshots.append((list(packages.items()),
+                                  [Path(p).name for p in outputs],
+                                  {Path(p).name: Path(p).read_bytes() for p in outputs}))
+                for name, source in sources.items():
+                    self.assertEqual((root / name).read_bytes(), source.encode("utf-8"))
+            self.assertEqual(snapshots[0], snapshots[1])
+            packages, outputs, contents = snapshots[0]
+            self.assertEqual(packages, [
+                ("demo", ["a.go", "b.go", "first.go", "second.go", "shared.go"]),
+                ("alpha", ["other.go"]), ("zeta", ["z.go"]),
+            ])
+            self.assertEqual(outputs, ["demo_go.txt", "alpha_go.txt", "zeta_go.txt"])
+            self.assertNotIn(b"Excluded", contents["demo_go.txt"])
+            self.assertEqual(contents["demo_go.txt"].count(b"func "), 5)
+
     def test_initial_bom_preserves_file_and_import_identity(self):
         packages, outputs = self.consolidate({
             "bom.go": '\ufeff// license\r\n\r\npackage demo\r\nimport f "fmt"\r\nfunc Café() {}\r\n',
