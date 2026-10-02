@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 spec = importlib.util.spec_from_file_location(
@@ -20,9 +21,56 @@ class ConsolidationTests(unittest.TestCase):
             for name, source in files.items():
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(source)
+                path.write_text(source, encoding="utf-8")
             packages, outputs = getter.consolidate_go_files(directory)
-            return dict(packages), {Path(p).name: Path(p).read_text() for p in outputs}
+            for name, source in files.items():
+                self.assertEqual((root / name).read_bytes(), source.encode("utf-8"))
+            return dict(packages), {Path(p).name: Path(p).read_text(encoding="utf-8") for p in outputs}
+
+    def test_initial_bom_preserves_file_and_import_identity(self):
+        packages, outputs = self.consolidate({
+            "bom.go": '\ufeff// license\r\n\r\npackage demo\r\nimport f "fmt"\r\nfunc Café() {}\r\n',
+            "plain.go": 'package demo\nimport f "fmt"\nfunc Plain() {}\n',
+        })
+        self.assertEqual(set(packages["demo"]), {"bom.go", "plain.go"})
+        text = outputs["demo_go.txt"]
+        self.assertIn("// license", text)
+        self.assertIn("func Café()", text)
+        self.assertIn("func Plain()", text)
+        self.assertEqual(text.count('f "fmt"'), 1)
+        self.assertNotIn("\ufeff", text)
+
+    def test_header_reader_ignores_exactly_one_initial_bom(self):
+        package, imports, body = getter._extract_go_header('\ufeffpackage demo\nimport "fmt"\nfunc One() {}\n')
+        self.assertEqual((package, imports), ("demo", {'"fmt"'}))
+        self.assertIn("func One()", body)
+        for source in ['\ufeff\ufeffpackage demo\n', '\n\ufeffpackage demo\n']:
+            with self.subTest(source=source):
+                package, _, _ = getter._extract_go_header(source)
+                self.assertIsNone(package)
+
+    def test_interior_bom_source_text_is_preserved(self):
+        body = 'const raw = `inside\ufeffliteral`\n// comment\ufefftext\nfunc Keep() {}\n'
+        _, outputs = self.consolidate({"one.go": '\ufeffpackage demo\n' + body})
+        self.assertIn(body, outputs["demo_go.txt"])
+
+    def test_unicode_io_does_not_use_ascii_locale_default(self):
+        native_open = open
+
+        def ascii_default_open(file, mode="r", *args, **kwargs):
+            if "b" not in mode and not kwargs.get("encoding"):
+                kwargs["encoding"] = "ascii"
+            return native_open(file, mode, *args, **kwargs)
+
+        # Emulate an ASCII default only at the helper's file-I/O boundary.
+        # Real UTF-8 temporary files still exercise decoding and output encoding.
+        with patch.object(getter, "open", ascii_default_open, create=True):
+            packages, outputs = self.consolidate({
+                "unicode.go": 'package demo\n// résumé\nfunc Café() {}\n',
+            })
+        self.assertEqual(packages, {"demo": ["unicode.go"]})
+        self.assertIn("// résumé", outputs["demo_go.txt"])
+        self.assertIn("func Café()", outputs["demo_go.txt"])
 
     def test_single_imports_deduplicate_after_leading_blank_lines(self):
         _, outputs = self.consolidate({

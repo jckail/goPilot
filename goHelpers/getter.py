@@ -24,6 +24,9 @@ def _extract_go_header(contents):
     This is a bounded header reader, not a Go compiler. Only imports following
     the package clause are collected; comments and source-body strings survive.
     """
+    # Go's scanner ignores a BOM only at the first code point of the file.
+    if contents.startswith("\ufeff"):
+        contents = contents[1:]
     tokens = [m for m in _GO_TOKENS.finditer(contents) if m.lastgroup != "comment"]
     if (len(tokens) < 2 or tokens[0].group() != "package"
             or tokens[1].lastgroup != "identifier"):
@@ -121,7 +124,7 @@ def consolidate_go_files(directory):
                 logger.info(f"Processing file: {file}")
                 file_path = os.path.join(subdir, file)
 
-                with open(file_path, "r") as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     contents = f.read()
                     contents = contents + f"\n // This is the end of {file}\n"
 
@@ -151,7 +154,7 @@ def consolidate_go_files(directory):
         # Write the final content to the file in the passed directory
         output_file_path = os.path.join(directory, f"{package_name}_go.txt")
         try:
-            with open(output_file_path, "w") as f:
+            with open(output_file_path, "w", encoding="utf-8") as f:
                 f.write(final_content)
                 logger.info(f"File written: {output_file_path}")
                 outputs.append(output_file_path)
