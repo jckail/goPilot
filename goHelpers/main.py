@@ -66,9 +66,8 @@ if __name__ == "__main__":
 
     package_map_context = goHelperDirectory+"results/package_map_context.txt"
     # Write to the .txt file
-    with open(package_map_context, 'w') as file:
-        for package_name, fs in package_map.items():
-            file.write(f"'{package_name}._go.txt' contains {fs}\n")
+    with open(package_map_context, 'w', encoding='utf-8') as file:
+        file.write(getter.format_package_map(package_map, files))
     files.append(package_map_context)
     
     _packages = ['logging', 'serde']
@@ -81,10 +80,10 @@ if __name__ == "__main__":
 
 
     # Example usage:
-    blurb_text = ("The directory tree above is a reflection of the actual directory tree, "
-                "the directory tree below is similar to what i've given you without the directories, "
-                "but simply take note that the contents of a \".go\" file are the same as the contents "
-                "of a \"_go.txt\" file in that you can map these trees one to one and they are identical.")
+    blurb_text = ("The first tree shows the source directory structure. "
+                  "The second tree is a legacy view with .go suffixes changed to _go.txt. "
+                  "Use package_map_context.txt as the authoritative mapping from actual "
+                  "per-package analysis context files to root-relative POSIX source paths.")
 
 
 
