@@ -22,7 +22,7 @@ def parse_and_save_unique_threads(file_path):
 
     #print(file_path)
     basefile = os.path.basename(file_path)
-    file_path = file_path.replace(basefile, "unique_" + basefile)
+    file_path = os.path.join(os.path.dirname(file_path), "unique_" + basefile)
     #print(file_path)
     # Save unique lines to a new file
     with open(file_path, 'w') as output_file:
