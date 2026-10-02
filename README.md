@@ -1,49 +1,53 @@
-# goPilot CLI Tool
+# goPilot
 
-This CLI tool is designed to facilitate various operations such as updating context, deleting files, running code, linting, and testing within the Go development environment. It also provides the ability to control output locations for code execution, linting, and test results.
+Legacy Python/shell helpers for collecting Go project context, running external Go checks and sending context/errors to an OpenAI assistant. This repository is not a Go application or a web frontend; it has no Go module or application UI.
 
-## Prerequisites
+**Source review is distinct from provider acceptance.** The helper uses legacy SDK/assistant operations and historical paths. No current provider compatibility, configured account, native execution or successful upload is established here.
 
-Before using the CLI, ensure you have the following installed:
+## Real entry points
 
-- Tweak `localtest/run.sh` so that it runs i with your runners.
-- Python 3 with `errorParser.py` and `chatParse.py` scripts located at `~/projects/goHelper/goHelpers/`
-- Golang with `golangci-lint` and `go test` tools installed
-- Run `export OPENAI_API_KEY="your_api_key"`
+| Entry | Responsibility |
+| --- | --- |
+| [ezRun.sh](ezRun.sh) | Flags, helper forwarding, external Go run/lint/test and thread-link postprocessing |
+| [all_run.sh](goHelpers/all_run.sh) | Calls the Python entry using historical helper paths |
+| [main.py](goHelpers/main.py) | Context assembly and assistant/file lifecycle orchestration |
+| [addGo.py](goHelpers/addGo.py) | Provider assistant, files and threads; constructor itself performs remote work |
+| [errorParser.py](goHelpers/errorParser.py) / [chatParse.py](goHelpers/chatParse.py) | Error-to-thread workflow and link postprocessing |
 
-## Usage
+```mermaid
+flowchart LR
+  Shell[ezRun.sh] --> Helper[all_run.sh and main.py]
+  Helper --> Context[Go sources and tree context]
+  Helper --> Manager[AssistantManager]
+  Manager --> Provider[Legacy assistant/file/thread APIs]
+  Shell --> Go[External Go run/lint/test]
+  Go --> Errors[Error parser]
+  Errors --> Manager
+```
 
-Execute the CLI script with the desired options:
+[Architecture](docs/architecture.mdx) · [Developer/operation guide](docs/developer/cli.mdx) · [Original README](docs/legacy/README-original.md)
 
-### Most Commonly used updates contexts, runs code, runs lint, runs tests:
-```./localtest/run.sh -u true -r true -n true -t true```
+## Configuration and operation boundaries
 
-### Run the script with a specified directory and enable code running:
-```./cli_script.sh -d ~/myGoProject -r true```
+Provider configuration comes from `OPENAI_API_KEY` in the runtime environment. The Python entry rejects a missing/blank value before context generation or manager construction. No key value belongs in source, documentation or design artifacts. Removal from the current file does not erase Git history or rotate a credential.
 
-### Run the script to update the context, run linter, and run tests in a specific directory:
-```./cli_script.sh -d ~/myGoProject -u true -n true -t true```
+Inspect and correct the selected helper/output paths and target project before operating. The wrapper always launches the helper; all boolean flags set to false do **not** make a dry run. `-d` is forwarded for context selection, while Go commands run from the shell's current directory. Historical paths still point to a `goHelper` tree and the code runner expects a caller's `localtest/run/run.go`.
 
-### Specify custom output paths for the execution, linting, and testing results:
-```./cli_script.sh -c ~/custom/path/code.txt -l ~/custom/path/lint.txt -o ~/custom/path/test.txt```
+`-a true` reaches provider-account file enumeration/deletion, broader than local thread-text cleanup. It requires explicit authorization for that account and exact scope. Normal manager construction and upload can also create/update/delete provider objects; do not execute these for a configuration or documentation audit.
 
-### Run the script to delete all threads text and run tests without linting or running code:
-```./cli_script.sh -a true -t true -n false -r false```
+The source advertises `-x`, but its `getopts` string omits it. Thread-text cleanup defaults true. No claim is made that the legacy flag/SDK workflow is fixed beyond the runtime-key guard.
 
-## Options
-`./cli_script.sh [options]`
-`If an invalid option is passed, the script will display a usage message and exit.`
+## Inert verification
 
-- `-d DIRECTORY`: Specify the directory to work in (default: current directory).
-- `-u`: Update context (set to `true` or `false`, default: `false`).
-- `-a`: Delete all threads text (set to `true` or `false`, default: `false`).
-- `-r`: Run code (set to `true` or `false`, default: `false`).
-- `-n`: Run linter (set to `true` or `false`, default: `false`).
-- `-t`: Run tests (set to `true` or `false`, default: `false`).
-- `-c`: Path for code execution output (default: `~/projects/goHelper/goHelpers/results/codeRun.txt`).
-- `-l`: Path for linting output (default: `~/projects/goHelper/goHelpers/results/lintOutput.txt`).
-- `-o`: Path for testing output (default: `~/projects/goHelper/goHelpers/results/testOutput.txt`).
-- `-x`: Delete the threads text file after execution (set to `true` or `false`, default: `true`).
+These checks do not import helper modules or contact a provider:
 
+```bash
+bash -n ezRun.sh goHelpers/all_run.sh
+python3 -B -m unittest discover -s tests -v
+```
 
+The tests extract selected AST to verify runtime configuration and startup ordering. They are not an integration test of SDK, file upload or external Go tooling. Python dependencies are not pinned; the helper Makefile installs packages and generates/deletes wrapper files, so its targets are not inert validation.
 
+The repository has no license file identified in this snapshot. Existing source and the original README remain the attribution/provenance reference; this documentation adds no license grant.
+
+[Documentation canvas](https://superdesign.dev/teams/daa6c1df-346f-4dc3-81dd-fb4f462aff90/projects/8ddc6d31-cab0-4a6a-b18e-706f0bf43ef2) · [Linear project](https://linear.app/jckail/project/gopilot-25d280e3a6b1)

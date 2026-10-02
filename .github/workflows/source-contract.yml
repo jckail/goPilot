@@ -1,0 +1,25 @@
+name: Source contract
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  inert-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: AST-only runtime configuration tests
+        run: python3 -B -m unittest discover -s tests -v
+      - name: Shell syntax only
+        run: bash -n ezRun.sh goHelpers/all_run.sh
+      - name: Python syntax without helper imports
+        run: |
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          for path in Path('goHelpers').glob('*.py'):
+              ast.parse(path.read_text(), filename=str(path))
+          PY
