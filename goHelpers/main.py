@@ -1,4 +1,5 @@
 import logging
+import os
 import walkIt
 import addGo
 import getter
@@ -22,12 +23,23 @@ webreources = [
                "https://pkg.go.dev/encoding/json"
                ]
 
+def require_runtime_key(environ):
+    """Require provider configuration without returning or printing the key."""
+    if not environ.get("OPENAI_API_KEY", "").strip():
+        raise ValueError("OPENAI_API_KEY must be set in the runtime environment.")
+
+
 if __name__ == "__main__":
-    apiKey = "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"
     model = "gpt-4-1106-preview"
 
     if len(sys.argv) != 5:
         logger.error("Usage: python getter.py <directory>")
+        sys.exit(1)
+
+    try:
+        require_runtime_key(os.environ)
+    except ValueError as error:
+        logger.error("%s", error)
         sys.exit(1)
 
     updateContext = False
