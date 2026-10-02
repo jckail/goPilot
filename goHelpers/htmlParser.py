@@ -1,5 +1,8 @@
 import sys
 import os
+import hashlib
+import re
+from urllib.parse import urlsplit
 import requests
 from bs4 import BeautifulSoup
 
@@ -65,15 +68,12 @@ def save_text_to_file(text, filename):
 
 
 def generate_filename_from_url(url):
-    # Split the URL to get the part after '.com'
-    parts = url.split(".com")
-    if len(parts) > 1:
-        # Replace '/' with '_' and remove leading '/'
-        parsed_name = parts[1].replace("/", "_").lstrip("_")
-        return parsed_name
-    parts = url.split(".dev")
-    parsed_name = parts[1].replace("/", "_").lstrip("_")
-    return parsed_name
+    """Return a bounded portable stem, preserving exact URL identity in its digest."""
+    parts = urlsplit(url)
+    readable = (parts.hostname or "web") + parts.path
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "-", readable).strip("-_")[:80] or "web"
+    digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
+    return f"web-{slug}-{digest}"
 
 
 def fetchWebData(url,path):
