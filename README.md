@@ -37,16 +37,24 @@ Inspect and correct the selected helper/output paths and target project before o
 
 The source advertises `-x`, but its `getopts` string omits it. Thread-text cleanup defaults true. No claim is made that the legacy flag/SDK workflow is fixed beyond the runtime-key guard.
 
-## Inert verification
+## Offline verification
 
-These checks do not import helper modules or contact a provider:
+Run these checks from the repository root. Shell syntax validation does not execute the wrappers, and the Python suite uses synthetic inputs without contacting a provider:
 
 ```bash
 bash -n ezRun.sh goHelpers/all_run.sh
 python3 -B -m unittest discover -s tests -v
 ```
 
-The tests extract selected AST to verify runtime configuration and startup ordering. They are not an integration test of SDK, file upload or external Go tooling. Python dependencies are not pinned; the helper Makefile installs packages and generates/deletes wrapper files, so its targets are not inert validation.
+The suite combines selected AST checks for runtime configuration/startup ordering with actual offline helper execution: [getter tests](tests/test_getter.py) import the context consolidator and [thread-parser tests](tests/test_chat_parse.py) import the link parser, using temporary files to check outputs and input preservation. The suite does not import the provider-aware `main.py`, initialize an assistant client, execute the shell wrappers, or qualify SDK/file-upload/external Go integration.
+
+In the shared native WSL workspace, coordinate with the existing verification owner and inspect jobs in sibling worktrees before running the suite. Use the shared gate instead of the direct Python command above:
+
+```bash
+/home/jkail/.local/bin/agent-heavy-check -- python3 -B -m unittest discover -s tests -v
+```
+
+Run the gate in the foreground. Admission exit 75 means the suite did not run; report the contention instead of repeatedly queueing an unchanged check or bypassing the gate. See the [operation guide](docs/developer/cli.mdx) for verification boundaries. Python dependencies are not pinned; the helper Makefile installs packages and generates/deletes wrapper files, so its targets mutate the environment.
 
 The repository has no license file identified in this snapshot. Existing source and the original README remain the attribution/provenance reference; this documentation adds no license grant.
 
