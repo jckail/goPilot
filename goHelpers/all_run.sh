@@ -1,47 +1,39 @@
 #!/bin/bash
 
-# Default values for the arguments
 DIRECTORY="."
 UpdateContext=false
 DeleteAll=false
 
-# Function to show usage
 usage() {
-    echo "Usage: $0 [-d DIRECTORY] [-u UpdateContext] [-a DeleteAll]"
-    echo "  -d DIRECTORY     Specify the directory (default: current directory)"
-    echo "  -u UpdateContext Specify UpdateContext (true/false, default: false)"
-    echo "  -a DeleteAll     Specify DeleteAll (true/false, default: false)"
-    exit 1
+    echo "Usage: $0 [-d DIRECTORY] [-u true|false] [-a true|false] [-h|--help]"
+    echo "Runs the provider-aware helper. All flags false is not a dry run."
 }
+fail() { echo "$1" >&2; usage >&2; exit 2; }
 
-# Parsing command-line options
-while getopts ":d:u:a:" opt; do
-  case $opt in
-    d) DIRECTORY="$OPTARG"
-       ;;
-    u) UpdateContext="$OPTARG"
-       if [ "$UpdateContext" != "true" ] && [ "$UpdateContext" != "false" ]; then
-           echo "UpdateContext must be a boolean value: true or false"
-           exit 2
-       fi
-       ;;
-    a) DeleteAll="$OPTARG"
-       if [ "$DeleteAll" != "true" ] && [ "$DeleteAll" != "false" ]; then
-           echo "DeleteAll must be a boolean value: true or false"
-           exit 2
-       fi
-       ;;
-    \?) echo "Invalid option: -$OPTARG" >&2
-        usage
-        ;;
-    :) echo "Option -$OPTARG requires an argument." >&2
-       usage
-       ;;
-  esac
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -h|--help) usage; exit 0 ;;
+        -d|-u|-a)
+            option="$1"
+            [ "$#" -ge 2 ] && [ -n "$2" ] && [[ "$2" != -* ]] || fail "Option $option requires an argument."
+            case "$option" in
+                -d) DIRECTORY="$2" ;;
+                -u|-a)
+                    [[ "$2" == true || "$2" == false ]] || fail "Option $option must be true or false."
+                    if [ "$option" == -u ]; then UpdateContext="$2"; else DeleteAll="$2"; fi
+                    ;;
+            esac
+            shift 2 ;;
+        --) shift; [ "$#" -eq 0 ] || fail "Unexpected positional argument: $1" ;;
+        *) fail "Unknown option or positional argument: $1" ;;
+    esac
 done
 
-# Hard-code the working directory to the current directory when this Makefile is run
-WORKINGDIRECTORY=/home/ec2-user/projects/goHelper/goHelpers
+[ -d "$DIRECTORY" ] || fail "Context directory must exist and be a directory: $DIRECTORY"
 
-# Run the Python script with the two directories as arguments and the booleans
-python3 "$WORKINGDIRECTORY/main.py" "$DIRECTORY" "$WORKINGDIRECTORY" "$UpdateContext" "$DeleteAll" || echo "The python script failed to execute"
+WORKINGDIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)" || exit 1
+mkdir -p -- "$WORKINGDIRECTORY/results" || exit "$?"
+python3 "$WORKINGDIRECTORY/main.py" "$DIRECTORY" "$WORKINGDIRECTORY" "$UpdateContext" "$DeleteAll"
+status=$?
+if [ "$status" -ne 0 ]; then echo "The Python helper failed (exit $status)." >&2; fi
+exit "$status"

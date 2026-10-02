@@ -2,14 +2,14 @@
 
 Legacy Python/shell helpers for collecting Go project context, running external Go checks and sending context/errors to an OpenAI assistant. This repository is not a Go application or a web frontend; it has no Go module or application UI.
 
-**Source review is distinct from provider acceptance.** The helper uses legacy SDK/assistant operations and historical paths. No current provider compatibility, configured account, native execution or successful upload is established here.
+**Source review is distinct from provider acceptance.** The helper uses legacy SDK/assistant operations and provider-aware operations. No current provider compatibility, configured account or successful provider-backed workflow is established here.
 
 ## Real entry points
 
 | Entry | Responsibility |
 | --- | --- |
 | [ezRun.sh](ezRun.sh) | Flags, helper forwarding, external Go run/lint/test and thread-link postprocessing |
-| [all_run.sh](goHelpers/all_run.sh) | Calls the Python entry using historical helper paths |
+| [all_run.sh](goHelpers/all_run.sh) | Calls the neighboring Python entry with validated arguments |
 | [main.py](goHelpers/main.py) | Context assembly and assistant/file lifecycle orchestration |
 | [addGo.py](goHelpers/addGo.py) | Provider assistant, files and threads; constructor itself performs remote work |
 | [errorParser.py](goHelpers/errorParser.py) / [chatParse.py](goHelpers/chatParse.py) | Error-to-thread workflow and link postprocessing |
@@ -31,11 +31,11 @@ flowchart LR
 
 Provider configuration comes from `OPENAI_API_KEY` in the runtime environment. The Python entry rejects a missing/blank value before context generation or manager construction. No key value belongs in source, documentation or design artifacts. Removal from the current file does not erase Git history or rotate a credential.
 
-Inspect and correct the selected helper/output paths and target project before operating. The wrapper always launches the helper; all boolean flags set to false do **not** make a dry run. `-d` is forwarded for context selection, while Go commands run from the shell's current directory. Historical paths still point to a `goHelper` tree and the code runner expects a caller's `localtest/run/run.go`.
+The launchers resolve helpers and default `goHelpers/results` outputs relative to this checkout, preserving paths containing spaces. `bash ezRun.sh --help` and `bash goHelpers/all_run.sh --help` exit successfully without running helpers or creating outputs. Unknown/missing/positional arguments and non-boolean flag values and nonexistent/non-directory context targets fail before those operations. The wrapper always launches the provider-aware helper for valid operational arguments; all boolean flags set to false do **not** make a dry run. `-d` selects context while Go commands retain the caller's current directory; the code runner still expects that project's `localtest/run/run.go`.
 
 `-a true` reaches provider-account file enumeration/deletion, broader than local thread-text cleanup. It requires explicit authorization for that account and exact scope. Normal manager construction and upload can also create/update/delete provider objects; do not execute these for a configuration or documentation audit.
 
-The source advertises `-x`, but its `getopts` string omits it. Thread-text cleanup defaults true. No claim is made that the legacy flag/SDK workflow is fixed beyond the runtime-key guard.
+`-x true/false` controls thread-text cleanup and defaults true. Cleanup and external checks happen only after successful helper execution; a helper failure is returned unchanged. Go check failures still reach error parsing, and parser failures return a nonzero status. The error parser reads the selected report first, then supplies its own helper directory to the manager. These launcher fixes establish no current provider/SDK compatibility.
 
 ## Offline verification
 
@@ -46,7 +46,7 @@ bash -n ezRun.sh goHelpers/all_run.sh
 python3 -B -m unittest discover -s tests -v
 ```
 
-The suite combines selected AST checks for runtime configuration/startup ordering with actual offline helper execution: [getter tests](tests/test_getter.py) import the context consolidator and [thread-parser tests](tests/test_chat_parse.py) import the link parser, using temporary files to check outputs and input preservation. The suite does not import the provider-aware `main.py`, initialize an assistant client, execute the shell wrappers, or qualify SDK/file-upload/external Go integration.
+The suite combines selected AST checks for runtime configuration/startup ordering with actual offline helper execution: [getter tests](tests/test_getter.py) import the context consolidator and [thread-parser tests](tests/test_chat_parse.py) import the link parser, using temporary files to check outputs and input preservation. [Launcher tests](tests/test_launchers.py) execute copied actual scripts with inert Python/Go/lint command adapters; [error-parser tests](tests/test_error_parser.py) execute its actual entry using a fake manager module. These check routing, help/validation, failure ordering and helper/report separation. The suite does not import provider-aware `main.py`, initialize an actual assistant client, run real Go checks or qualify SDK/file-upload integration. Make target execution is explicitly skipped if Make is unavailable; it requires separate qualification in an environment with Make.
 
 In the shared native WSL workspace, coordinate with the existing verification owner and inspect jobs in sibling worktrees before running the suite. Use the shared gate instead of the direct Python command above:
 
@@ -54,7 +54,7 @@ In the shared native WSL workspace, coordinate with the existing verification ow
 /home/jkail/.local/bin/agent-heavy-check -- python3 -B -m unittest discover -s tests -v
 ```
 
-Run the gate in the foreground. Admission exit 75 means the suite did not run; report the contention instead of repeatedly queueing an unchanged check or bypassing the gate. See the [operation guide](docs/developer/cli.mdx) for verification boundaries. Python dependencies are not pinned; the helper Makefile installs packages and generates/deletes wrapper files, so its targets mutate the environment.
+Run the gate in the foreground. Admission exit 75 means the suite did not run; report the contention instead of repeatedly queueing an unchanged check or bypassing the gate. See the [operation guide](docs/developer/cli.mdx) for verification boundaries. Python dependencies are not pinned; the helper Makefile's `install` target changes the environment. `all_run.sh` is maintained source: `create_script` checks its presence and `clean` preserves it; neither regenerates nor deletes the tracked wrapper.
 
 The repository has no license file identified in this snapshot. Existing source and the original README remain the attribution/provenance reference; this documentation adds no license grant.
 

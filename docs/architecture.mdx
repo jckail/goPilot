@@ -8,7 +8,7 @@ This is a legacy Python/shell tool around an external Go project, not a Go appli
 
 ```mermaid
 flowchart TD
-  Wrapper[ezRun.sh flag parser] --> Forward[all_run.sh historical paths]
+  Wrapper[ezRun.sh validated flags] --> Forward[all_run.sh checkout-relative paths]
   Forward --> Entry[main.py runtime key guard]
   Entry --> Walk[Directory/source context extraction]
   Walk --> Files[Generated local context artifacts]
@@ -34,7 +34,9 @@ flowchart TD
 
 ## State and side effects
 
-Source consolidation, tree assembly and output parsing write local artifacts. The shell wrapper uses historical helper/output paths that are independent of this checkout's location. `-d` does not change the shell's working directory for Go commands.
+Source consolidation, tree assembly and output parsing write local artifacts. The launchers resolve helper paths from their own location; default outputs live in this checkout's `goHelpers/results`. They validate arguments and the selected context directory before helper work. `-h` and `--help` return without executing helpers or creating results. `-d` selects context and leaves Go commands in the caller's working directory.
+
+The outer launcher stops on helper failure before thread-log cleanup, Go checks or parsers. A failed Go check still sends its diagnostics to the error parser. The error parser reads the report before constructing the manager and supplies its own helper directory for prompt/context paths. The maintained `all_run.sh` is source; Makefile `create_script` and `clean` preserve it.
 
 `AssistantManager` construction fetches/updates the provider assistant. Upload processing may replace provider files and manipulate local copies; error handling may create threads and runs. The delete-all path lists and deletes account-level provider files. These are operations, not inert parsing or a local-only thread reset.
 
@@ -42,4 +44,4 @@ The runtime-key guard requires a nonblank `OPENAI_API_KEY` before Python entry c
 
 ## Qualification limits
 
-No Go module, application routes, browser UI, pinned Python dependency set or original offline test harness was identified. The bounded AST tests validate the new configuration boundary without importing SDK/helpers. Shell syntax and Python AST parsing establish syntax, not provider acceptance. Live operations, key/account changes, context uploads and resets remain outside this review.
+The repository has no Go module, application routes, browser UI or pinned Python dependency set. Offline tests combine selected configuration/startup AST checks with actual context/tree/link helpers, copied launchers running inert executable adapters in temporary checkouts, and the actual error-parser entry with a fake manager. These fixtures establish local parsing, paths, preservation and failure routing. They do not qualify current SDK, provider uploads or external Go integration. Shell syntax and Python AST parsing provide additional syntax checks. Live operations, key/account changes, context uploads and resets require separate qualification.

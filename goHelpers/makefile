@@ -8,26 +8,10 @@ install:
 	@pip3 install python-dotenv
 	@pip3 install directory_tree
 
+# all_run.sh is maintained source, not a generated artifact.
 create_script:
-	@echo "#!/bin/bash" > all_run.sh
-	@echo "" >> all_run.sh
-	@echo "# Check if one argument is given" >> all_run.sh
-	@echo 'if [ "$$#" -ne 1 ]; then' >> all_run.sh
-	@echo '    echo "Usage: $$0 <DIRECTORY>"' >> all_run.sh
-	@echo '    exit 1' >> all_run.sh
-	@echo 'fi' >> all_run.sh
-	@echo "" >> all_run.sh
-	@echo "# Hard-code the working directory to the current directory when this Makefile is run" >> all_run.sh
-	@echo "WORKINGDIRECTORY=$(PWD)" >> all_run.sh
-	@echo "" >> all_run.sh
-	@echo "# Assign the argument to a variable" >> all_run.sh
-	@echo 'DIRECTORY=$$1' >> all_run.sh
-	@echo "" >> all_run.sh
-	@echo "# Run the Python script with the two directories as arguments" >> all_run.sh
-	@echo 'python3 "$$WORKINGDIRECTORY/main.py" "$$DIRECTORY" "$$WORKINGDIRECTORY" || echo "The python script failed to execute"' >> all_run.sh
-	@chmod +x all_run.sh
-
-
+	@test -f all_run.sh || test -f goHelpers/all_run.sh || { echo "Restore the tracked all_run.sh from Git." >&2; exit 1; }
+	@echo "Using maintained all_run.sh; no generation required."
 
 clean:
-	@rm -f all_run.sh
+	@echo "No generated wrapper artifacts to clean; all_run.sh is preserved."

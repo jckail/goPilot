@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Default values for the arguments
 DIRECTORY="."
 UpdateContext=false
 DeleteAll=false
@@ -8,101 +7,85 @@ RunCode=false
 RunLint=false
 RunTest=false
 DeleteThreadsTxt=true
-CodeOutput="${HOME}/projects/goHelper/goHelpers/results/codeRun.txt"
-LintOutput="${HOME}/projects/goHelper/goHelpers/results/lintOutput.txt"
-TestOutput="${HOME}/projects/goHelper/goHelpers/results/testOutput.txt"
+CodeOutput=""
+LintOutput=""
+TestOutput=""
 
-
-# Function to show usage
 usage() {
-    echo "Usage: $0 [-d DIRECTORY] [-u UpdateContext] [-a DeleteAll] [-r RunCode] [-n RunLint] [-t RunTest] [-c CodeOutput] [-l LintOutput] [-o TestOutput]"
-    echo "  -d DIRECTORY     Specify the directory (default: current directory)"
-    echo "  -u UpdateContext Specify UpdateContext (true/false, default: false)"
-    echo "  -a DeleteAll     Specify DeleteAll (true/false, default: false)"
-    echo "  -r RunCode       Specify RunCode (true/false, default: false)"
-    echo "  -n RunLint       Specify RunLint (true/false, default: false)"
-    echo "  -t RunTest       Specify RunTest (true/false, default: false)"
-    echo "  -c CodeOutput    Specify CodeOutput (default: ${CodeOutput})"
-    echo "  -l LintOutput    Specify LintOutput (default: ${LintOutput})"
-    echo "  -o TestOutput    Specify TestOutput (default: ${TestOutput})"
-    echo "  -x DeleteThreadsTxt    Specify DeleteThreadsTxt (true/false, default: true)"
-    exit 1
+    echo "Usage: $0 [-d DIRECTORY] [-u true|false] [-a true|false] [-r true|false] [-n true|false] [-t true|false] [-x true|false] [-c FILE] [-l FILE] [-o FILE] [-h|--help]"
+    echo "  -d selects context; Go commands retain the caller's working directory."
+    echo "  -c/-l/-o select code/lint/test output (default: this checkout's goHelpers/results)."
+    echo "  -x controls thread-log cleanup (default: true, after helper success)."
+    echo "All flags false still runs the provider-aware helper; this is not a dry run."
 }
+fail() { echo "$1" >&2; usage >&2; exit 2; }
 
-# Parsing command-line options
-while getopts ":d:u:a:r:n:t:c:l:o:" opt; do
-  case $opt in
-    d) DIRECTORY="$OPTARG"
-       ;;
-    u) UpdateContext="$OPTARG"
-       ;;
-    a) DeleteAll="$OPTARG"
-       ;;
-    r) RunCode="$OPTARG"
-       ;;
-    n) RunLint="$OPTARG"
-       ;;
-    t) RunTest="$OPTARG"
-       ;;
-    c) CodeOutput="$OPTARG"
-       ;;
-    l) LintOutput="$OPTARG"
-       ;;
-    o) TestOutput="$OPTARG"
-       ;;
-    x) DeleteThreadsTxt="$OPTARG"
-       ;;
-    \?) echo "Invalid option: -$OPTARG" >&2
-        usage
-        ;;
-    :) echo "Option -$OPTARG requires an argument." >&2
-       usage
-       ;;
-  esac
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -h|--help) usage; exit 0 ;;
+        -d|-u|-a|-r|-n|-t|-x|-c|-l|-o)
+            option="$1"
+            [ "$#" -ge 2 ] && [ -n "$2" ] && [[ "$2" != -* ]] || fail "Option $option requires an argument."
+            case "$option" in
+                -d) DIRECTORY="$2" ;;
+                -c) CodeOutput="$2" ;;
+                -l) LintOutput="$2" ;;
+                -o) TestOutput="$2" ;;
+                *)
+                    [[ "$2" == true || "$2" == false ]] || fail "Option $option must be true or false."
+                    case "$option" in
+                        -u) UpdateContext="$2" ;;
+                        -a) DeleteAll="$2" ;;
+                        -r) RunCode="$2" ;;
+                        -n) RunLint="$2" ;;
+                        -t) RunTest="$2" ;;
+                        -x) DeleteThreadsTxt="$2" ;;
+                    esac ;;
+            esac
+            shift 2 ;;
+        --) shift; [ "$#" -eq 0 ] || fail "Unexpected positional argument: $1" ;;
+        *) fail "Unknown option or positional argument: $1" ;;
+    esac
 done
 
-# Run the specified shell script
-~/projects/goHelper/goHelpers/all_run.sh -d "$DIRECTORY" -u "$UpdateContext" -a "$DeleteAll"
+[ -d "$DIRECTORY" ] || fail "Context directory must exist and be a directory: $DIRECTORY"
 
-# Path to the file
-FILE_PATH="${HOME}/projects/goHelper/goHelpers/results/chatThreads.txt"
-if [[ "$DeleteThreadsTxt" == "true" ]]; then
-    # Check if the file exists
-    if [ -f "$FILE_PATH" ]; then
-        # Empty the file contents
-        > "$FILE_PATH"
-        echo "Contents of $FILE_PATH have been erased."
-    else
-        echo "File $FILE_PATH does not exist."
-    fi
+SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)" || exit 1
+HELPER_DIRECTORY="$SCRIPT_DIRECTORY/goHelpers"
+RESULTS_DIRECTORY="$HELPER_DIRECTORY/results"
+CodeOutput="${CodeOutput:-$RESULTS_DIRECTORY/codeRun.txt}"
+LintOutput="${LintOutput:-$RESULTS_DIRECTORY/lintOutput.txt}"
+TestOutput="${TestOutput:-$RESULTS_DIRECTORY/testOutput.txt}"
+
+bash "$HELPER_DIRECTORY/all_run.sh" -d "$DIRECTORY" -u "$UpdateContext" -a "$DeleteAll"
+status=$?
+[ "$status" -eq 0 ] || exit "$status"
+
+# Only touch the selected checkout's thread log after successful helper work.
+FILE_PATH="$RESULTS_DIRECTORY/chatThreads.txt"
+if [ "$DeleteThreadsTxt" == true ]; then
+    : > "$FILE_PATH" || exit "$?"
+else
+    if [ ! -e "$FILE_PATH" ]; then : > "$FILE_PATH" || exit "$?"; fi
 fi
 
-# Conditional execution based on the flags
-if [[ "$RunCode" == "true" ]]; then
-  echo "Running code..."
-  go run localtest/run/run.go > "$CodeOutput" 2>&1
-  if ! python3 ~/projects/goHelper/goHelpers/errorParser.py "$CodeOutput" >> "${HOME}/projects/goHelper/goHelpers/results/chatThreads.txt"; then
-      echo "errorParser failed to execute for CodeOutput" >&2
-  fi
+parse_errors() {
+    python3 "$HELPER_DIRECTORY/errorParser.py" "$1" >> "$FILE_PATH"
+}
+
+# A failed Go check still needs its diagnostics routed through the parser.
+if [ "$RunCode" == true ]; then
+    go run localtest/run/run.go > "$CodeOutput" 2>&1
+    parse_errors "$CodeOutput" || exit "$?"
+fi
+if [ "$RunLint" == true ]; then
+    golangci-lint run --timeout=5m > "$LintOutput" 2>&1
+    parse_errors "$LintOutput" || exit "$?"
+fi
+if [ "$RunTest" == true ]; then
+    go test ./... -coverprofile=coverage.txt -covermode count -timeout 2m > "$TestOutput" 2>&1
+    parse_errors "$TestOutput" || exit "$?"
 fi
 
-if [[ "$RunLint" == "true" ]]; then
-  echo "Running lints..."
-  golangci-lint run --timeout=5m > "$LintOutput" 2>&1
-  if ! python3 ~/projects/goHelper/goHelpers/errorParser.py "$LintOutput" >> "${HOME}/projects/goHelper/goHelpers/results/chatThreads.txt"; then
-      echo "errorParser failed to execute for LintOutput" >&2
-  fi
-fi
-
-if [[ "$RunTest" == "true" ]]; then
-  echo "Running tests..." 
-  go test ./... -coverprofile=coverage.txt -covermode count -timeout 2m > "$TestOutput" 2>&1
-  if ! python3 ~/projects/goHelper/goHelpers/errorParser.py "$TestOutput" >> "${HOME}/projects/goHelper/goHelpers/results/chatThreads.txt"; then
-      echo "errorParser failed to execute for TestOutput" >&2
-  fi
-fi
-
-echo "Running Thread Parsers..."
-  if ! python3 ~/projects/goHelper/goHelpers/chatParse.py "${HOME}/projects/goHelper/goHelpers/results/chatThreads.txt"; then
-      echo "chatParse failed to execute for chatThreads" >&2
-  fi
+python3 "$HELPER_DIRECTORY/chatParse.py" "$FILE_PATH"
+exit "$?"
