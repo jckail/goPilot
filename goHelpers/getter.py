@@ -100,11 +100,31 @@ def _remove_spans(contents, spans):
     return contents
 
 
+def context_output_name(package_name):
+    """Return the filename shared by context output and its source map."""
+    return f"{package_name}_go.txt"
+
+
+def format_package_map(package_map, generated_outputs):
+    """Describe actual outputs and retained source inventory without filesystem IO."""
+    generated_names = {os.path.basename(path) for path in generated_outputs}
+    lines = []
+    for package_name, paths in package_map.items():
+        output_name = context_output_name(package_name)
+        if output_name in generated_names:
+            lines.append(f"'{output_name}' contains {paths}\n")
+        else:
+            lines.append(f"'{package_name}': context not generated; sources {paths}\n")
+    return "".join(lines)
+
+
 def consolidate_go_files(directory):
     """Write per-package analysis context, not a guaranteed compilable Go file.
 
     Directories and filenames are visited lexically for reproducible context,
-    source-map and output ordering.
+    source-map and output ordering. Source maps and boundary markers use
+    root-relative POSIX paths; root filenames remain unchanged, while nested
+    filenames include their directories to preserve source identity.
 
     Equivalent literal paths with the same alias are deduplicated and emitted
     as quoted paths. Different aliases, duplicate
@@ -127,10 +147,11 @@ def consolidate_go_files(directory):
             if file.endswith(".go") and not file.endswith("_test.go"):
                 logger.info(f"Processing file: {file}")
                 file_path = os.path.join(subdir, file)
+                source_path = os.path.relpath(file_path, directory).replace(os.sep, "/")
 
                 with open(file_path, "r", encoding="utf-8") as f:
                     contents = f.read()
-                    contents = contents + f"\n // This is the end of {file}\n"
+                    contents = contents + f"\n // This is the end of {source_path}\n"
 
                     package_name, imports, contents = _extract_go_header(contents)
                     if package_name:
@@ -141,13 +162,11 @@ def consolidate_go_files(directory):
                             package_imports[package_name] = set()
 
                         package_imports[package_name].update(imports)
-                        #contents = f"// This is the start of {file}" + contents
-                        #print(contents)
                         # Append the contents to the package contents
-                        package_contents[package_name] += f"\n // This is the start of {file} "
+                        package_contents[package_name] += f"\n // This is the start of {source_path} "
                         package_contents[package_name] += contents + "\n"
                         #print(package_contents[package_name])
-                        package_map[package_name].append(file)
+                        package_map[package_name].append(source_path)
     # Now create the consolidated .txt files with imports and package declarations
     for package_name, contents in package_contents.items():
         # Prepend unique imports and the package name to the content
@@ -156,7 +175,7 @@ def consolidate_go_files(directory):
         final_content = f"package {package_name}\n\n{import_block}{contents}"
 
         # Write the final content to the file in the passed directory
-        output_file_path = os.path.join(directory, f"{package_name}_go.txt")
+        output_file_path = os.path.join(directory, context_output_name(package_name))
         try:
             with open(output_file_path, "w", encoding="utf-8") as f:
                 f.write(final_content)

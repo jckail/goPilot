@@ -1,5 +1,6 @@
 """Offline regression checks for the Go analysis-context consolidator."""
 
+import ast
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -26,6 +27,111 @@ class ConsolidationTests(unittest.TestCase):
             for name, source in files.items():
                 self.assertEqual((root / name).read_bytes(), source.encode("utf-8"))
             return dict(packages), {Path(p).name: Path(p).read_text(encoding="utf-8") for p in outputs}
+
+    def test_source_paths_disambiguate_nested_names_in_map_and_markers(self):
+        packages, outputs = self.consolidate({
+            "root.go": "package demo\nfunc Root() {}\n",
+            "alpha/shared.go": "package demo\nfunc Alpha() {}\n",
+            "café space/shared.go": "package demo\nfunc Unicode() {}\n",
+            "café space/shared_test.go": "package demo\nfunc Excluded() {}\n",
+        })
+        paths = ["root.go", "alpha/shared.go", "café space/shared.go"]
+        self.assertEqual(packages, {"demo": paths})
+        for path in paths:
+            self.assertEqual(outputs["demo_go.txt"].count("// This is the start of " + path), 1)
+            self.assertEqual(outputs["demo_go.txt"].count("// This is the end of " + path), 1)
+        self.assertNotIn("Excluded", outputs["demo_go.txt"])
+
+    def test_live_main_map_writer_uses_actual_output_names_and_utf8(self):
+        tree = ast.parse((Path(__file__).resolve().parents[1] / "goHelpers" / "main.py").read_text(encoding="utf-8"))
+        blocks = [node for node in ast.walk(tree) if isinstance(node, ast.With)
+                  and any(isinstance(item.context_expr, ast.Call)
+                          and isinstance(item.context_expr.func, ast.Name)
+                          and item.context_expr.func.id == "open"
+                          and item.context_expr.args
+                          and isinstance(item.context_expr.args[0], ast.Name)
+                          and item.context_expr.args[0].id == "package_map_context"
+                          for item in node.items)]
+        self.assertEqual(len(blocks), 1)
+        module = ast.fix_missing_locations(ast.Module(body=blocks, type_ignores=[]))
+        builtin_open = open
+
+        def ascii_default_open(*args, **kwargs):
+            if "encoding" not in kwargs:
+                kwargs["encoding"] = "ascii"
+            return builtin_open(*args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "café space" / "shared.go"
+            source.parent.mkdir()
+            original = "package demo\nfunc Café() {}\n".encode("utf-8")
+            source.write_bytes(original)
+            packages, outputs = getter.consolidate_go_files(directory)
+            context = root / "package_map_context.txt"
+            exec(compile(module, "main-map-block", "exec"), {
+                "getter": getter, "open": ascii_default_open,
+                "package_map_context": str(context), "package_map": packages, "files": outputs,
+            })
+            self.assertEqual(context.read_text(encoding="utf-8"),
+                             "'demo_go.txt' contains ['café space/shared.go']\n")
+            self.assertTrue((root / "demo_go.txt").exists())
+            self.assertEqual([Path(p).name for p in outputs], ["demo_go.txt"])
+            self.assertEqual(source.read_bytes(), original)
+
+    def test_failed_context_writes_remain_inventory_without_false_references(self):
+        builtin_open = open
+        for refused in ({"demo_go.txt"}, {"demo_go.txt", "other_go.txt"}):
+            with self.subTest(refused=refused), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                sources = {"a.go": "package demo\nfunc A() {}\n",
+                           "b.go": "package other\nfunc B() {}\n"}
+                for name, source in sources.items():
+                    (root / name).write_text(source, encoding="utf-8")
+
+                def refuse_output(path, mode="r", *args, **kwargs):
+                    if mode == "w" and Path(path).name in refused:
+                        raise OSError("synthetic output refusal")
+                    return builtin_open(path, mode, *args, **kwargs)
+
+                with patch.object(getter, "open", refuse_output, create=True):
+                    packages, outputs = getter.consolidate_go_files(directory)
+                text = getter.format_package_map(packages, outputs)
+                self.assertEqual(dict(packages), {"demo": ["a.go"], "other": ["b.go"]})
+                for package, paths in packages.items():
+                    name = package + "_go.txt"
+                    if name in refused:
+                        self.assertFalse((root / name).exists())
+                        self.assertNotIn(name, text)
+                        self.assertIn(f"'{package}': context not generated; sources {paths}", text)
+                    else:
+                        self.assertTrue((root / name).exists())
+                        self.assertIn(f"'{name}' contains {paths}", text)
+                for name, source in sources.items():
+                    self.assertEqual((root / name).read_bytes(), source.encode("utf-8"))
+
+    def test_map_formatter_is_pure_and_tree_blurb_describes_aggregation(self):
+        packages = {"demo": ["root.go", "nested/shared.go"], "other": ["other.go"]}
+        original = {name: list(paths) for name, paths in packages.items()}
+        self.assertEqual(getter.format_package_map(packages, ["/tmp/demo_go.txt", "/tmp/other_go.txt"]),
+                         "'demo_go.txt' contains ['root.go', 'nested/shared.go']\n"
+                         "'other_go.txt' contains ['other.go']\n")
+        self.assertEqual(packages, original)
+        self.assertEqual(getter.format_package_map({}, []), "")
+        tree = ast.parse((Path(__file__).resolve().parents[1] / "goHelpers" / "main.py").read_text(encoding="utf-8"))
+        assignments = [node for node in ast.walk(tree) if isinstance(node, ast.Assign)
+                       and any(isinstance(target, ast.Name) and target.id == "blurb_text" for target in node.targets)]
+        self.assertEqual(len(assignments), 1)
+        namespace = {}
+        exec(compile(ast.fix_missing_locations(ast.Module(body=assignments, type_ignores=[])),
+                     "main-blurb", "exec"), namespace)
+        blurb = namespace["blurb_text"]
+        self.assertIn("package_map_context.txt", blurb)
+        self.assertIn("root-relative", blurb)
+        self.assertIn("per-package", blurb)
+        self.assertIn("legacy", blurb)
+        self.assertNotIn("one to one", blurb)
+        self.assertNotIn("identical", blurb)
 
     def test_context_is_reproducible_across_directory_enumeration(self):
         sources = {
@@ -67,8 +173,8 @@ class ConsolidationTests(unittest.TestCase):
             self.assertEqual(snapshots[0], snapshots[1])
             packages, outputs, contents = snapshots[0]
             self.assertEqual(packages, [
-                ("demo", ["a.go", "b.go", "first.go", "second.go", "shared.go"]),
-                ("alpha", ["other.go"]), ("zeta", ["z.go"]),
+                ("demo", ["a.go", "b.go", "alpha/first.go", "alpha/second.go", "beta/shared.go"]),
+                ("alpha", ["alpha/other.go"]), ("zeta", ["beta/z.go"]),
             ])
             self.assertEqual(outputs, ["demo_go.txt", "alpha_go.txt", "zeta_go.txt"])
             self.assertNotIn(b"Excluded", contents["demo_go.txt"])
@@ -223,7 +329,7 @@ class ConsolidationTests(unittest.TestCase):
             "main_test.go": 'package main\nimport "testing"\nfunc TestMain() {}\n',
             "lib/helper.go": 'package helper\nimport "strings"\nfunc Help() {}\n',
         })
-        self.assertEqual(packages, {"main": ["main.go"], "helper": ["helper.go"]})
+        self.assertEqual(packages, {"main": ["main.go"], "helper": ["lib/helper.go"]})
         self.assertEqual(set(outputs), {"main_go.txt", "helper_go.txt"})
         self.assertNotIn("TestMain", outputs["main_go.txt"])
         self.assertNotIn('"testing"', outputs["main_go.txt"])
