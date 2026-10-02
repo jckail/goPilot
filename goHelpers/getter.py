@@ -103,6 +103,9 @@ def _remove_spans(contents, spans):
 def consolidate_go_files(directory):
     """Write per-package analysis context, not a guaranteed compilable Go file.
 
+    Directories and filenames are visited lexically for reproducible context,
+    source-map and output ordering.
+
     Equivalent literal paths with the same alias are deduplicated and emitted
     as quoted paths. Different aliases, duplicate
     declarations, build tags and cgo context can still prevent compilation.
@@ -119,7 +122,8 @@ def consolidate_go_files(directory):
 
     # Traverse through the directory
     for subdir, dirs, files in os.walk(directory):
-        for file in files:
+        dirs.sort()
+        for file in sorted(files):
             if file.endswith(".go") and not file.endswith("_test.go"):
                 logger.info(f"Processing file: {file}")
                 file_path = os.path.join(subdir, file)
