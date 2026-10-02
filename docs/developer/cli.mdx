@@ -19,14 +19,14 @@ All flags off still invoke the helper and its manager. `OPENAI_API_KEY` must com
 
 ```mermaid
 flowchart LR
-  Source[Read selected source and owner instructions] --> Static[Syntax and AST-only checks]
+  Source[Read selected source and owner instructions] --> Static[Syntax and offline helper checks]
   Static --> Paths[Review target cwd and helper/output paths]
   Paths --> Account[Verify exact provider account and intended operations]
   Account --> Authorization[Explicit operation authorization]
   Authorization --> Runtime[Separate provider/SDK qualification]
 ```
 
-For inert local verification:
+For offline local verification from the repository root:
 
 ```bash
 bash -n ezRun.sh goHelpers/all_run.sh
@@ -34,6 +34,16 @@ python3 -B -m unittest discover -s tests -v
 ```
 
 Tests in [test_runtime_config.py](../../tests/test_runtime_config.py) compile only the selected configuration function and startup-prefix AST, rejecting missing/blank keys and verifying an early error before context/provider work. They never import `main.py`, initialize a provider client or execute the shell wrapper.
+
+The discovery command also runs [test_getter.py](../../tests/test_getter.py) and [test_chat_parse.py](../../tests/test_chat_parse.py). These import the actual offline helpers and execute them against synthetic temporary files, checking generated context, source identity, output paths and input preservation. Selected `main.py` AST blocks are tested separately without importing its provider-aware module. Offline helper execution does not establish assistant/file-upload or external Go integration.
+
+In the shared native WSL workspace, inspect running jobs for this repository, including sibling worktrees, and agree on one verification owner. Run the Python suite through the foreground shared gate rather than the direct command above:
+
+```bash
+/home/jkail/.local/bin/agent-heavy-check -- python3 -B -m unittest discover -s tests -v
+```
+
+Reuse the owner's result when it covers the selected source. Admission exit 75 means the command did not execute; preserve the log and report contention. Do not repeatedly queue the unchanged command, move it to another harness or worktree, or bypass the gate. A timeout likewise requires diagnosis before another attempt. A documentation-only change can be checked against live source and links without repeating a broad suite.
 
 Python syntax can be checked by `ast.parse` of selected code files without importing them. Avoid `py_compile` if generated cache files would interfere with another owner's checkout. Do not use the helper Makefile as a read-only check: installation and wrapper-generation/clean targets mutate the environment.
 
