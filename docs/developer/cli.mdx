@@ -4,7 +4,7 @@ title: goPilot developer and operation guide
 
 # goPilot developer and operation guide
 
-Inspect [ezRun.sh](../../ezRun.sh) and [all_run.sh](../../goHelpers/all_run.sh) before use. Historical `localtest/run.sh` and `cli_script.sh` names in the [original README](../legacy/README-original.md) do not exist here. Do not run the wrapper merely to obtain a help screen: it has no guaranteed inert dry-run path.
+Inspect [ezRun.sh](../../ezRun.sh) and [all_run.sh](../../goHelpers/all_run.sh) before use. Historical `localtest/run.sh` and `cli_script.sh` names in the [original README](../legacy/README-original.md) do not exist here. Use `bash ezRun.sh --help` or `bash goHelpers/all_run.sh -h` for inert help (exit 0). Help runs no helper, creates no results directory and clears no thread log. Valid operational arguments still invoke the provider-aware helper; there is no offline collection/dry-run mode.
 
 | Source option | Meaning and limitation |
 | --- | --- |
@@ -12,8 +12,13 @@ Inspect [ezRun.sh](../../ezRun.sh) and [all_run.sh](../../goHelpers/all_run.sh) 
 | `-u true/false` | Optional context update/fetched context path; not a global no-egress switch |
 | `-a true/false` | Provider-account reset path; requires exact account/scope authorization |
 | `-r`, `-n`, `-t` with boolean values | External code, lint and test execution; output is routed to provider-aware error handling |
-| `-c`, `-l`, `-o` with paths | Code/lint/test output destinations; defaults are historical helper-tree paths |
-| Advertised `-x` | Not accepted by current `getopts`; thread-text cleanup defaults true |
+| `-c`, `-l`, `-o` with paths | Code/lint/test outputs; defaults are this checkout's `goHelpers/results/codeRun.txt`, `lintOutput.txt`, `testOutput.txt` |
+| `-x true/false` | Clear the local thread log after helper success; default true |
+| `-h`, `--help` | Print usage and exit successfully before operational side effects |
+
+Helpers resolve from each launcher's script location, so invoke the checkout from any working directory; quoted context/output paths may contain spaces. `-d` does not change Go command cwd. Every boolean requires exactly `true` or `false`; empty/missing values, unknown options and unexpected positional arguments fail before helper execution or output creation. The context directory must exist and be a directory; this is checked before helper/results work. For paths beginning with `-`, use an explicit relative/absolute path such as `./-name`.
+
+Helper failures propagate their exact exit code through both launchers and stop before thread cleanup, Go checks or postprocessing. Results storage is initialized only after argument validation. After helper success, `-x false` preserves existing thread text without touching the existing log (or initializes an absent log); `-x true` clears it before appending new error links. A Go/lint failure still routes its output to the error parser. Error/thread parser failures return their status; a successful parse does not certify that the Go check passed. The error parser validates/reads the report before manager construction and passes its script-relative helper directory, with a trailing separator, separately from the report path.
 
 All flags off still invoke the helper and its manager. `OPENAI_API_KEY` must come from the runtime environment; the entry guard validates presence only. Never paste a key into source, issue, artifact or canvas. No configuration changes or provider probes are performed by this guide.
 
@@ -35,7 +40,7 @@ python3 -B -m unittest discover -s tests -v
 
 Tests in [test_runtime_config.py](../../tests/test_runtime_config.py) compile only the selected configuration function and startup-prefix AST, rejecting missing/blank keys and verifying an early error before context/provider work. They never import `main.py`, initialize a provider client or execute the shell wrapper.
 
-The discovery command also runs [test_getter.py](../../tests/test_getter.py) and [test_chat_parse.py](../../tests/test_chat_parse.py). These import the actual offline helpers and execute them against synthetic temporary files, checking generated context, source identity, output paths and input preservation. Selected `main.py` AST blocks are tested separately without importing its provider-aware module. Offline helper execution does not establish assistant/file-upload or external Go integration.
+The discovery command also runs [test_getter.py](../../tests/test_getter.py) and [test_chat_parse.py](../../tests/test_chat_parse.py). These import the actual offline helpers and execute them against synthetic temporary files, checking generated context, source identity, output paths and input preservation. [Launcher tests](../../tests/test_launchers.py) run copied actual shell scripts with inert executable Python/Go/lint adapters, testing native paths, quoted arguments, caller cwd, validation/help, failure ordering and log preservation. [Error-parser tests](../../tests/test_error_parser.py) run its actual entry with an inert manager module, including missing-report rejection before manager construction. Selected `main.py` AST blocks remain separate and never import its provider-aware module. Offline helper execution does not establish assistant/file-upload or external Go integration. Make preservation tests run only when Make is installed and explicitly skip otherwise.
 
 In the shared native WSL workspace, inspect running jobs for this repository, including sibling worktrees, and agree on one verification owner. Run the Python suite through the foreground shared gate rather than the direct command above:
 
@@ -45,6 +50,6 @@ In the shared native WSL workspace, inspect running jobs for this repository, in
 
 Reuse the owner's result when it covers the selected source. Admission exit 75 means the command did not execute; preserve the log and report contention. Do not repeatedly queue the unchanged command, move it to another harness or worktree, or bypass the gate. A timeout likewise requires diagnosis before another attempt. A documentation-only change can be checked against live source and links without repeating a broad suite.
 
-Python syntax can be checked by `ast.parse` of selected code files without importing them. Avoid `py_compile` if generated cache files would interfere with another owner's checkout. Do not use the helper Makefile as a read-only check: installation and wrapper-generation/clean targets mutate the environment.
+Python syntax can be checked by `ast.parse` of selected code files without importing them. Avoid `py_compile` if generated cache files would interfere with another owner's checkout. Do not use the Makefile `install` target as a read-only check: it installs Python dependencies. The maintained launcher is tracked source; `create_script` checks that it exists and `clean` leaves it intact. From the repository root, `make -C goHelpers create_script clean` checks this compatibility boundary without regenerating or deleting the launcher. Tests execute these targets only in temporary copied fixtures; no installation target is run.
 
 External Go checks require a real target module and the shared verification owner/gate. They do not validate assistant lifecycle effects. The legacy SDK calls require a separate current-provider migration/qualification review; this change makes no current compatibility claim.

@@ -1,5 +1,6 @@
 import addGo
 import sys
+import os
 import logging
 # Configure logging to write to stdout, which can be seen in the shell
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -28,6 +29,7 @@ if __name__ == "__main__":
 
     #goHelperDirectory = "/home/ec2-user/projects/goHelper/goHelpers/"
     # file_path = goHelperDirectory + "results/results.txt"
-    aM = addGo.AssistantManager( "goBot", file_path)
     addContent = main(file_path)
+    helper_directory = os.path.dirname(os.path.abspath(__file__)) + os.sep
+    aM = addGo.AssistantManager("goBot", helper_directory)
     aM.createThread(addContent)
