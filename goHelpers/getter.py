@@ -144,7 +144,7 @@ def _publish_context(output_file_path, contents):
                 pass
 
 
-def consolidate_go_files(directory):
+def consolidate_go_files(directory, *, output_directory=None, strict_walk=False):
     """Write per-package analysis context, not a guaranteed compilable Go file.
 
     Directories and filenames are visited lexically for reproducible context,
@@ -160,6 +160,8 @@ def consolidate_go_files(directory):
     entries after close. Existing output metadata is not retained. A package's
     publication failure is logged, its source inventory remains in package_map,
     and its destination is omitted from outputs; other packages still proceed.
+    output_directory redirects package outputs without changing source identity.
+    strict_walk raises traversal errors instead of silently omitting directories.
     """
     outputs = []
 
@@ -172,7 +174,11 @@ def consolidate_go_files(directory):
     package_map = defaultdict(list)
 
     # Traverse through the directory
-    for subdir, dirs, files in os.walk(directory):
+    def raise_walk_error(error):
+        raise error
+
+    walk_options = {"onerror": raise_walk_error} if strict_walk else {}
+    for subdir, dirs, files in os.walk(directory, **walk_options):
         dirs.sort()
         for file in sorted(files):
             if file.endswith(".go") and not file.endswith("_test.go"):
@@ -206,7 +212,8 @@ def consolidate_go_files(directory):
         final_content = f"package {package_name}\n\n{import_block}{contents}"
 
         # Write the final content to the file in the passed directory
-        output_file_path = os.path.join(directory, context_output_name(package_name))
+        output_root = directory if output_directory is None else output_directory
+        output_file_path = os.path.join(output_root, context_output_name(package_name))
         try:
             _publish_context(output_file_path, final_content)
             logger.info(f"File written: {output_file_path}")

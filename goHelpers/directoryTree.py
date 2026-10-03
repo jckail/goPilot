@@ -9,7 +9,7 @@
 
 import os
 
-def save_dir_tree_to_file(startpath, output_filepath, packages=None, exclude=None):
+def save_dir_tree_to_file(startpath, output_filepath, packages=None, exclude=None, *, strict_walk=False):
     if exclude is None:
         exclude = []
     if packages is None:
@@ -17,10 +17,11 @@ def save_dir_tree_to_file(startpath, output_filepath, packages=None, exclude=Non
 
     project_name = os.path.basename(startpath.rstrip(os.sep))  # Get the project name from the directory path
     # Format the list of packages into a string
-    packages_list_str = ', '.join(packages[:-1]) + ', and ' + packages[-1] if packages else ''
+    packages_list_str = (packages[0] if len(packages) == 1 else
+                         ', '.join(packages[:-1]) + ', and ' + packages[-1]) if packages else ''
 
     startpath = startpath.rstrip(os.sep)  # Remove the trailing separator for consistency
-    with open(output_filepath, 'w') as f:
+    with open(output_filepath, 'w', encoding='utf-8') as f:
         # Write the header with the list of packages
         f.write(f"This go project is called: {project_name}'s here is it's current directory tree.\n")
         if packages_list_str:
@@ -30,7 +31,11 @@ def save_dir_tree_to_file(startpath, output_filepath, packages=None, exclude=Non
         f.write('{}{}/\n'.format('', project_name))
         # Make sure the rest of the path is relative
         startpath_length = len(startpath)
-        for root, dirs, files in os.walk(startpath, topdown=True):
+        def raise_walk_error(error):
+            raise error
+
+        walk_options = {"onerror": raise_walk_error} if strict_walk else {}
+        for root, dirs, files in os.walk(startpath, topdown=True, **walk_options):
             # Exclude hidden directories and specified directories/files
             # Mutate dirs so os.walk also visits descendants in stable order.
             dirs[:] = sorted(d for d in dirs if not d.startswith('.') and d not in exclude)
@@ -67,15 +72,15 @@ def replace_suffix_in_file(input_filepath, output_filepath):
 
 def append_files_with_blurb(file1, file2, final_file, blurb):
     # Open the first file and read its contents
-    with open(file1, 'r') as f:
+    with open(file1, 'r', encoding='utf-8') as f:
         content1 = f.read()
 
     # Open the second file and read its contents
-    with open(file2, 'r') as f:
+    with open(file2, 'r', encoding='utf-8') as f:
         content2 = f.read()
 
     # Write the contents to the final file with the blurb in between
-    with open(final_file, 'w') as f:
+    with open(final_file, 'w', encoding='utf-8') as f:
         f.write(content1 + '\n')
         f.write(blurb + '\n\n')
         f.write(content2)
@@ -104,6 +109,5 @@ if __name__ == "__main__":
 
 
     append_files_with_blurb('results/directory_tree.txt', 'results/directory_tree_updated.txt', 'results/projectDirectoryTree.txt', blurb_text)
-
 
 

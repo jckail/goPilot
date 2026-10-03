@@ -11,6 +11,7 @@ Legacy Python/shell helpers for collecting Go project context, running external 
 | [ezRun.sh](ezRun.sh) | Flags, helper forwarding, external Go run/lint/test and thread-link postprocessing |
 | [all_run.sh](goHelpers/all_run.sh) | Calls the neighboring Python entry with validated arguments |
 | [scrapeWeb.sh](goHelpers/scrapeWeb.sh) | Standalone URL-to-context command; calls the adjacent HTML helper and returns its status |
+| [exportContext.py](goHelpers/exportContext.py) | Standalone Go analysis-context export into a fresh directory; uses only the Python standard library |
 | [main.py](goHelpers/main.py) | Context assembly and assistant/file lifecycle orchestration |
 | [addGo.py](goHelpers/addGo.py) | Provider assistant, files and threads; constructor itself performs remote work |
 | [errorParser.py](goHelpers/errorParser.py) / [chatParse.py](goHelpers/chatParse.py) | Error-to-thread workflow and link postprocessing |
@@ -24,19 +25,36 @@ flowchart LR
   Shell --> Go[External Go run/lint/test]
   Go --> Errors[Error parser]
   Errors --> Manager
+  Export[exportContext.py] --> Local[Fresh local analysis-context directory]
 ```
 
 [Architecture](docs/architecture.mdx) · [Developer/operation guide](docs/developer/cli.mdx) · [Original README](docs/legacy/README-original.md)
 
 ## Configuration and operation boundaries
 
-Provider configuration comes from `OPENAI_API_KEY` in the runtime environment. The Python entry rejects a missing/blank value before context generation or manager construction. No key value belongs in source, documentation or design artifacts. Removal from the current file does not erase Git history or rotate a credential.
+Provider configuration comes from `OPENAI_API_KEY` in the runtime environment. The provider-aware `main.py` entry rejects a missing/blank value before context generation or manager construction. The separate context export command below needs no provider configuration. No key value belongs in source, documentation or design artifacts. Removal from the current file does not erase Git history or rotate a credential.
 
 The launchers resolve helpers and default `goHelpers/results` outputs relative to this checkout, preserving paths containing spaces. `bash ezRun.sh --help` and `bash goHelpers/all_run.sh --help` exit successfully without running helpers or creating outputs. Unknown/missing/positional arguments and non-boolean flag values and nonexistent/non-directory context targets fail before those operations. The wrapper always launches the provider-aware helper for valid operational arguments; all boolean flags set to false do **not** make a dry run. `-d` selects context while Go commands retain the caller's current directory; the code runner still expects that project's `localtest/run/run.go`.
 
 `-a true` reaches provider-account file enumeration/deletion, broader than local thread-text cleanup. It requires explicit authorization for that account and exact scope. Normal manager construction and upload can also create/update/delete provider objects; do not execute these for a configuration or documentation audit.
 
 `-x true/false` controls thread-text cleanup and defaults true. Cleanup and external checks happen only after successful helper execution; a helper failure is returned unchanged. Go check failures still reach error parsing, and parser failures return a nonzero status. The error parser reads the selected report first, then supplies its own helper directory to the manager. These launcher fixes establish no current provider/SDK compatibility.
+
+## Standalone Go context export
+
+From the repository root, export analysis context using the Python standard library:
+
+```bash
+python3 -B goHelpers/exportContext.py SOURCE NEW_OUTPUT_DIR
+```
+
+Quote paths containing spaces, for example `python3 -B goHelpers/exportContext.py '/path/Go project' '/path/exports/fresh context'`. The source and output parent must be existing directories. The output must be a new directory outside the resolved source tree: existing files, directories and symlinks, including dangling links, are rejected. Resolving parent symlinks also prevents choosing an output inside the source through another path. The command creates its destination exclusively with mode 0700 on POSIX and writes no generated files into the source.
+
+The export contains UTF-8 `<package>_go.txt` analysis files, `package_map_context.txt`, `directory_tree.txt`, `directory_tree_updated.txt` and `projectDirectoryTree_context.txt`. The tree header lists the packages actually discovered. The package map provides authoritative root-relative source paths and generated package filenames. Both tree files remain legacy views with a known nesting/indentation limitation; the suffix-updated view does not imply a separate output for every source file. Analysis text is not guaranteed to compile.
+
+The command needs no provider key, dependency installation or Go executable, and performs no provider operations. `--help` returns 0 without creating output. A complete export returns 0 and prints only its destination path to stdout. Invalid arguments, read/walk failures, publication or later output-write failures, and no eligible packages return 1 with a bounded single-line error on stderr. A failure after creating the fresh directory retains and reports that incomplete directory; it does not replace an older export. Exporting does not provide an atomic snapshot of a changing source tree, preserve source metadata, guarantee crash durability or establish Windows permission behavior.
+
+This is a separate entry from the provider-aware launchers. Their key requirement and existing provider workflow remain unchanged. The [export tests](tests/test_export_context.py) exercise the standard-library CLI in isolated temporary projects, deterministic multi-package Unicode output, source and prior-artifact preservation, destination rejection and read/publication failures. Injected walk/later-write failures and a simulated case-folding collision check cover additional failure paths. These tests establish no provider acceptance or native Windows permission behavior.
 
 ## Offline verification
 

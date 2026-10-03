@@ -4,7 +4,36 @@ title: goPilot developer and operation guide
 
 # goPilot developer and operation guide
 
-Inspect [ezRun.sh](../../ezRun.sh) and [all_run.sh](../../goHelpers/all_run.sh) before use. Historical `localtest/run.sh` and `cli_script.sh` names in the [original README](../legacy/README-original.md) do not exist here. Use `bash ezRun.sh --help` or `bash goHelpers/all_run.sh -h` for inert help (exit 0). Help runs no helper, creates no results directory and clears no thread log. Valid operational arguments still invoke the provider-aware helper; there is no offline collection/dry-run mode.
+Inspect [ezRun.sh](../../ezRun.sh) and [all_run.sh](../../goHelpers/all_run.sh) before use. Historical `localtest/run.sh` and `cli_script.sh` names in the [original README](../legacy/README-original.md) do not exist here. Use `bash ezRun.sh --help` or `bash goHelpers/all_run.sh -h` for inert help (exit 0). Help runs no helper, creates no results directory and clears no thread log. Valid operational arguments still invoke the provider-aware helper; those launchers have no offline collection/dry-run mode. Use the separate [context export command](#standalone-go-context-export) for local analysis context without a provider.
+
+## Standalone Go context export
+
+[exportContext.py](../../goHelpers/exportContext.py) exports a complete Go analysis-context bundle using only the Python standard library. From the repository root:
+
+```bash
+python3 -B goHelpers/exportContext.py SOURCE NEW_OUTPUT_DIR
+python3 -B goHelpers/exportContext.py --help
+```
+
+`SOURCE` must be an existing directory. `NEW_OUTPUT_DIR` must not exist, and its parent must already be a directory. The resolved output must be outside the resolved source tree. Existing destination files, directories, symlinks and dangling links are rejected; parent symlink resolution prevents an apparently external path from directing output into the source. Quote paths containing spaces, for example `python3 -B goHelpers/exportContext.py '/path/Go project' '/path/exports/fresh context'`. The destination is created exclusively with mode 0700 on POSIX. Generated files stay in this fresh destination rather than beside source files.
+
+| Output | Meaning |
+| --- | --- |
+| `<package>_go.txt` | UTF-8 analysis text grouped by discovered package, with source boundary markers and consolidated imports; not guaranteed to compile |
+| `package_map_context.txt` | Authoritative mapping from generated package files to root-relative POSIX source paths |
+| `directory_tree.txt` | Legacy source-tree view with a header listing the actual discovered packages |
+| `directory_tree_updated.txt` | Legacy tree view with terminal Go file suffixes converted to `_go.txt` |
+| `projectDirectoryTree_context.txt` | Both tree views with an explanation directing readers to the authoritative package map |
+
+The tree renderer has a known nesting/indentation limitation. Its views do not define source identity or promise one generated file per tree entry; use the package map for that mapping. Source consolidation selects eligible non-test Go files with package declarations. No eligible packages is a failure rather than a successful empty export.
+
+A complete export returns 0 and prints only the destination path to stdout. `--help` returns 0 without reading source or creating a destination. Bad arguments and read, walk, package-publication or later output-write failures return 1 with a bounded single-line diagnostic on stderr. No success path is printed for an incomplete export. If a failure occurs after the fresh destination is created, the error reports that directory as incomplete and the directory is retained for inspection. Existing exports are never replaced by this command.
+
+The exporter does not import the provider manager, require a key or dependency installation, or run Go commands. It does not guarantee an atomic source snapshot, preserved source metadata, crash durability or Windows permissions. The existing provider-aware `main.py` and launcher workflow remain unchanged; provider migration and its required key-source choice remain separate under [JCK-210](https://linear.app/jckail/issue/JCK-210).
+
+The [export tests](../../tests/test_export_context.py) run the CLI with `python -B -S` from an external working directory against isolated temporary projects. They exercise deterministic multi-package Unicode context, source/prior-artifact preservation, help/argument validation, existing/dangling/nested/parent-symlink destination rejection, no eligible packages and actual source-read/package-publication failures. Injected source/tree-walk and late-write failures check incomplete-export reporting; a simulated case-folding collision checks that outputs cannot falsely represent distinct packages. This simulation is not native Windows qualification. Provider acceptance and Windows permission behavior remain separate.
+
+## Provider-aware launchers
 
 | Source option | Meaning and limitation |
 | --- | --- |
