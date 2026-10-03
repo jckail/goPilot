@@ -90,24 +90,158 @@ class HtmlEntryTests(unittest.TestCase):
                     self.assertEqual(self.calls, [])
                     self.assertFalse(helper.exists())
 
-    def test_fetch_failures_preserve_existing_return_without_creating_output(self):
+    def test_fetch_failures_exit_nonzero_on_stderr_without_creating_output(self):
         with tempfile.TemporaryDirectory() as directory:
             for failure, prefix in [("http", "HTTP error occurred:"), ("generic", "Other error occurred:")]:
                 with self.subTest(failure=failure):
                     helper = Path(directory) / failure
                     helper.mkdir()
-                    self.execute([URL, str(helper)], failure=failure)
+                    with self.assertRaises(SystemExit) as error:
+                        self.execute([URL, str(helper)], failure=failure)
+                    self.assertEqual(error.exception.code, 1)
                     self.assertEqual(self.calls, [("get", URL)])
-                    self.assertIn(prefix, self.stdout.getvalue())
+                    self.assertIn(prefix, self.stderr.getvalue())
+                    self.assertEqual(self.stdout.getvalue(), "")
                     self.assertEqual(list(helper.iterdir()), [])
 
     def test_processing_failure_creates_no_output_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             helper = Path(directory) / "helper"
             helper.mkdir()
-            with self.assertRaisesRegex(ValueError, "synthetic parsing failure"):
+            with self.assertRaises(SystemExit) as error:
                 self.execute([URL, str(helper)], failure="parse")
+            self.assertEqual(error.exception.code, 1)
+            self.assertIn("synthetic parsing failure", self.stderr.getvalue())
+            self.assertNotIn("Traceback", self.stderr.getvalue())
+            self.assertEqual(self.stdout.getvalue(), "")
             self.assertFalse((helper / "additionalcontext").exists())
+
+    def test_direct_fetch_failure_returns_false_without_exiting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            namespace = self.execute([URL, directory], main=False, failure="http")
+            with contextlib.redirect_stderr(self.stderr):
+                self.assertIs(namespace["fetchWebData"](URL, directory), False)
+            self.assertFalse((Path(directory) / "additionalcontext").exists())
+
+    def test_atomic_write_failure_preserves_existing_bytes_and_cleans_staging(self):
+        with tempfile.TemporaryDirectory() as directory:
+            namespace = self.execute([URL, directory])
+            output = Path(directory) / "additionalcontext" / EXPECTED_NAME
+            output.write_bytes(b"previous complete context\n")
+            sibling = output.parent / "other_context.txt"
+            sibling.write_bytes(b"sibling retained")
+            real_fdopen = os.fdopen
+
+            class PartialWriter:
+                def __init__(self, descriptor, *args, **kwargs):
+                    self.file = real_fdopen(descriptor, *args, **kwargs)
+                def __enter__(self):
+                    return self
+                def __exit__(self, *args):
+                    self.file.close()
+                def write(self, text):
+                    self.file.write(text[:7])
+                    self.file.flush()
+                    raise OSError("synthetic partial write failure")
+
+            with patch.object(os, "fdopen", PartialWriter):
+                with self.assertRaisesRegex(OSError, "synthetic partial write failure"):
+                    namespace["save_text_to_file"]("replacement complete context", str(output))
+            self.assertEqual(output.read_bytes(), b"previous complete context\n")
+            self.assertEqual(sibling.read_bytes(), b"sibling retained")
+            self.assertEqual(set(p.name for p in output.parent.iterdir()), {EXPECTED_NAME, sibling.name})
+
+    def test_replace_failure_preserves_destination_and_does_not_report_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.execute([URL, directory])
+            output = Path(directory) / "additionalcontext" / EXPECTED_NAME
+            output.write_bytes(b"previous complete context\n")
+            with patch.object(os, "replace", side_effect=OSError("synthetic replace failure")):
+                with self.assertRaises(SystemExit) as error:
+                    self.execute([URL, directory])
+            self.assertEqual(error.exception.code, 1)
+            self.assertEqual(self.stdout.getvalue(), "")
+            self.assertIn("synthetic replace failure", self.stderr.getvalue())
+            self.assertEqual(output.read_bytes(), b"previous complete context\n")
+            self.assertEqual(list(output.parent.iterdir()), [output])
+
+    def test_failed_close_keeps_old_output_or_absence_and_removes_staging(self):
+        with tempfile.TemporaryDirectory() as directory:
+            namespace = self.execute([URL, directory])
+            output = Path(directory) / "additionalcontext" / EXPECTED_NAME
+            real_fdopen = os.fdopen
+
+            class FailedClose:
+                def __init__(self, descriptor, *args, **kwargs):
+                    self.file = real_fdopen(descriptor, *args, **kwargs)
+                def __enter__(self):
+                    return self.file
+                def __exit__(self, *args):
+                    self.file.close()
+                    raise OSError("synthetic close failure")
+
+            for existing in [True, False]:
+                with self.subTest(existing=existing):
+                    if existing:
+                        output.write_bytes(b"old complete context")
+                    else:
+                        output.unlink()
+                    with patch.object(os, "fdopen", FailedClose), patch.object(os, "replace") as replace:
+                        with self.assertRaisesRegex(OSError, "synthetic close failure"):
+                            namespace["save_text_to_file"]("new complete context", str(output))
+                        replace.assert_not_called()
+                    if existing:
+                        self.assertEqual(output.read_bytes(), b"old complete context")
+                    else:
+                        self.assertFalse(output.exists())
+                    self.assertEqual(list(output.parent.iterdir()), [output] if existing else [])
+
+    def test_replace_runs_only_after_complete_staging_file_is_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            namespace = self.execute([URL, directory])
+            output = Path(directory) / "additionalcontext" / EXPECTED_NAME
+            real_fdopen = os.fdopen
+            real_replace = os.replace
+            opened = []
+            def capture_open(*args, **kwargs):
+                file = real_fdopen(*args, **kwargs)
+                opened.append(file)
+                return file
+            def checked_replace(staging, destination):
+                self.assertTrue(opened[-1].closed)
+                self.assertEqual(Path(staging).read_bytes(), "new 雪 context".encode("utf-8"))
+                real_replace(staging, destination)
+            with patch.object(os, "fdopen", capture_open), patch.object(os, "replace", checked_replace):
+                namespace["save_text_to_file"]("new 雪 context", str(output))
+            self.assertEqual(output.read_bytes(), "new 雪 context".encode("utf-8"))
+            self.assertEqual(list(output.parent.iterdir()), [output])
+
+    def test_atomic_success_writes_utf8_and_replaces_symlink_without_touching_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            namespace = self.execute([URL, directory])
+            output = Path(directory) / "additionalcontext" / EXPECTED_NAME
+            target = Path(directory) / "target.txt"
+            target.write_bytes(b"target retained")
+            output.unlink()
+            output.symlink_to(target)
+            namespace["save_text_to_file"]("Unicode: 雪 café\n", str(output))
+            self.assertFalse(output.is_symlink())
+            self.assertEqual(output.read_bytes(), "Unicode: 雪 café\n".encode("utf-8"))
+            self.assertEqual(target.read_bytes(), b"target retained")
+            self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(list(output.parent.iterdir()), [output])
+
+    def test_output_directory_failure_reports_stderr_and_preserves_obstruction(self):
+        with tempfile.TemporaryDirectory() as directory:
+            obstruction = Path(directory) / "additionalcontext"
+            obstruction.write_bytes(b"preserved obstruction")
+            with self.assertRaises(SystemExit) as error:
+                self.execute([URL, directory])
+            self.assertEqual(error.exception.code, 1)
+            self.assertEqual(self.stdout.getvalue(), "")
+            self.assertIn("HTML context failed:", self.stderr.getvalue())
+            self.assertNotIn("Traceback", self.stderr.getvalue())
+            self.assertEqual(obstruction.read_bytes(), b"preserved obstruction")
 
     def test_other_tld_entry_now_produces_context(self):
         with tempfile.TemporaryDirectory() as directory:
