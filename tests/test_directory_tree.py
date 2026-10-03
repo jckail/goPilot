@@ -1,9 +1,11 @@
 """Actual-module checks for legacy tree file-suffix conversion."""
 
 import importlib.util
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 spec = importlib.util.spec_from_file_location(
@@ -76,6 +78,104 @@ class TreeSuffixTests(unittest.TestCase):
         for content in [b"", b"documentation.go\nfile.golden\r\n", "├── directory.go/\n│   ├── upper.GO\n│   └── trailing.go \n".encode("utf-8")]:
             with self.subTest(content=content):
                 self.assertEqual(self.convert(content), content)
+
+
+class TreeOrderTests(unittest.TestCase):
+    def test_generated_tree_and_converted_artifact_are_stable_across_walk_order(self):
+        sources = {
+            "apple.go": b"package main\n",
+            "zebra.go": b"package main\nfunc Z() {}\n",
+            "ignore.go": b"package ignored\n",
+            "alpha/m.go": b"package alpha\n",
+            "alpha/nested/a.txt": b"note\n",
+            "alpha/nested/b.go": b"package nested\n",
+            "beta/a.go": b"package beta\n",
+            "beta/z.go": b"package beta\nfunc Z() {}\n",
+            "beta/ignore.go": b"package beta\nfunc Hidden() {}\n",
+            ".hidden/visible-in-hidden.go": b"package hidden\n",
+            "skipdir/nope.go": b"package skip\n",
+        }
+        expected = (
+            "This go project is called: proj's here is it's current directory tree.\n"
+            "proj's current Go Packages are: alpha, and beta\n"
+            "\n"
+            "proj/\n"
+            "│   ├── apple.go\n"
+            "│   └── zebra.go\n"
+            "├── alpha/\n"
+            "│   └── m.go\n"
+            "│   ├── empty/\n"
+            "│   ├── nested/\n"
+            "│   │   ├── a.txt\n"
+            "│   │   └── b.go\n"
+            "├── beta/\n"
+            "│   ├── a.go\n"
+            "│   └── z.go\n"
+        )
+        blurb = "map each terminal .go tree entry onto the _go.txt view"
+
+        def controlled_walk(path, reverse):
+            # Descent must honor in-place edits to dirs, the same way os.walk does.
+            current = Path(path)
+            dirs = sorted((entry.name for entry in current.iterdir() if entry.is_dir()), reverse=reverse)
+            files = sorted((entry.name for entry in current.iterdir() if entry.is_file()), reverse=reverse)
+            yield str(current), dirs, files
+            for dirname in dirs:
+                yield from controlled_walk(current / dirname, reverse)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "proj"
+            root.mkdir()
+            (root / "alpha" / "empty").mkdir(parents=True)
+            for name, content in sources.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+            originals = {path: path.read_bytes() for path in root.rglob("*") if path.is_file()}
+
+            artifacts = []
+            for reverse in (False, True):
+                tree_path = Path(directory) / f"tree-{reverse}.txt"
+                converted_path = Path(directory) / f"converted-{reverse}.txt"
+                combined_path = Path(directory) / f"combined-{reverse}.txt"
+                start = str(root) if reverse else str(root) + os.sep
+                def walk_in_order(path, topdown=True, onerror=None, followlinks=False, reverse=reverse):
+                    return controlled_walk(path, reverse)
+
+                with patch.object(directory_tree.os, "walk", side_effect=walk_in_order):
+                    directory_tree.save_dir_tree_to_file(
+                        start,
+                        str(tree_path),
+                        packages=["alpha", "beta"],
+                        exclude=["skipdir", "ignore.go"],
+                    )
+                tree_bytes = tree_path.read_bytes()
+                directory_tree.replace_suffix_in_file(str(tree_path), str(converted_path))
+                self.assertEqual(tree_path.read_bytes(), tree_bytes)
+                combined = directory_tree.append_files_with_blurb(
+                    str(tree_path), str(converted_path), str(combined_path), blurb
+                )
+                self.assertEqual(combined, str(combined_path.resolve()))
+                artifacts.append((tree_bytes, converted_path.read_bytes(), combined_path.read_bytes()))
+                for path, content in originals.items():
+                    self.assertEqual(path.read_bytes(), content)
+
+            self.assertEqual(artifacts[0], artifacts[1])
+            tree_bytes, converted_bytes, combined_bytes = artifacts[0]
+            rendered = tree_bytes.decode("utf-8")
+            self.assertEqual(rendered, expected)
+            for excluded in (".hidden", "visible-in-hidden.go", "skipdir", "nope.go", "ignore.go"):
+                self.assertNotIn(excluded, rendered)
+            suffix = TreeSuffixTests()
+            self.assertEqual(converted_bytes, suffix.convert(expected.encode("utf-8")))
+            converted_text = converted_bytes.decode("utf-8")
+            self.assertIn("│   ├── apple_go.txt\n", converted_text)
+            self.assertIn("│   │   ├── a.txt\n", converted_text)
+            self.assertIn("│   ├── empty/\n", converted_text)
+            self.assertEqual(
+                combined_bytes.decode("utf-8"),
+                expected + "\n" + blurb + "\n\n" + converted_text,
+            )
 
 
 if __name__ == "__main__":
