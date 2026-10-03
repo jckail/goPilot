@@ -21,11 +21,15 @@ python3 -B goHelpers/exportContext.py --help
 | --- | --- |
 | `<package>_go.txt` | UTF-8 analysis text grouped by discovered package, with source boundary markers and consolidated imports; not guaranteed to compile |
 | `package_map_context.txt` | Authoritative mapping from generated package files to root-relative POSIX source paths |
-| `directory_tree.txt` | Legacy source-tree view with a header listing the actual discovered packages |
-| `directory_tree_updated.txt` | Legacy tree view with terminal Go file suffixes converted to `_go.txt` |
+| `directory_tree.txt` | Source hierarchy with a header listing the actual discovered packages |
+| `directory_tree_updated.txt` | The same source hierarchy with terminal Go file suffixes converted to `_go.txt` |
 | `projectDirectoryTree_context.txt` | Both tree views with an explanation directing readers to the authoritative package map |
 
-The tree renderer has a known nesting/indentation limitation. Its views do not define source identity or promise one generated file per tree entry; use the package map for that mapping. Source consolidation selects eligible non-test Go files with package declarations. No eligible packages is a failure rather than a successful empty export.
+The tree renderer sorts directory siblings before file siblings and shows parent/child structure with correct final-sibling branches and ancestor continuation lines. Empty directories remain visible. Hidden entries and configured exclusions are pruned. Directory symlinks are leaves marked `[directory symlink; not followed]`. Display labels escape backslashes, controls and other nonprintable characters while preserving readable Unicode and spaces, so a filename cannot masquerade as multiple tree lines. These display escapes do not change source identity in the package map.
+
+The tree helper collects its filtered inventory before opening the tree output. With strict traversal enabled, a walk failure leaves any prior tree file intact. This is a traversal-failure boundary, not an atomic source snapshot or a guarantee that an entire export is transactional. The suffix-updated view keeps the source hierarchy; it does not promise one generated file per tree entry. Use the package map for generated package-output identity. Source consolidation selects eligible non-test Go files with package declarations. No eligible packages is a failure rather than a successful empty export.
+
+Direct helper callers use `replace_suffix_in_file(input_filepath, output_filepath, generated_tree=True)` for this generated hierarchy syntax, including unindented root-file entries and mixed ancestor spacing. The generic converter default remains unchanged and does not treat an unindented branch-like metadata line as a generated file entry. Conversion changes only recognized terminal `.go` file entries; directory names, other text and line endings remain intact.
 
 A complete export returns 0 and prints only the destination path to stdout. `--help` returns 0 without reading source or creating a destination. Bad arguments and read, walk, package-publication or later output-write failures return 1 with a bounded single-line diagnostic on stderr. No success path is printed for an incomplete export. If a failure occurs after the fresh destination is created, the error reports that directory as incomplete and the directory is retained for inspection. Existing exports are never replaced by this command.
 

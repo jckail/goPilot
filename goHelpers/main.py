@@ -76,7 +76,7 @@ if __name__ == "__main__":
     directoryTree.save_dir_tree_to_file(directory, goHelperDirectory+'results/directory_tree.txt',packages=_packages)
 
     # Example usage:
-    directoryTree.replace_suffix_in_file(goHelperDirectory+'results/directory_tree.txt', goHelperDirectory+'results/directory_tree_updated.txt')
+    directoryTree.replace_suffix_in_file(goHelperDirectory+'results/directory_tree.txt', goHelperDirectory+'results/directory_tree_updated.txt', generated_tree=True)
 
 
     # Example usage:
