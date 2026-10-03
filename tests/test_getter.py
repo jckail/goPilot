@@ -16,6 +16,96 @@ spec.loader.exec_module(getter)
 
 
 class ConsolidationTests(unittest.TestCase):
+    def test_failed_publication_preserves_old_context_source_and_unrelated_files(self):
+        actual_temporary_file = getter.tempfile.NamedTemporaryFile
+        actual_replace = getter.os.replace
+        for failure in ("write", "close", "replace"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                source = root / "input.go"
+                source.write_bytes(b"package demo\nfunc Example() {}\n")
+                output = root / "demo_go.txt"
+                output.write_bytes(b"previous complete context\n")
+                unrelated = root / ".gopilot-context-unrelated.tmp"
+                unrelated.write_bytes(b"not owned by this invocation\n")
+                before = {path.name: path.read_bytes() for path in root.iterdir()}
+                closed = []
+
+                class FaultyWriter:
+                    def __init__(self, *args, **kwargs):
+                        self.file = actual_temporary_file(*args, **kwargs)
+                        self.name = self.file.name
+
+                    def __enter__(self):
+                        self.file.__enter__()
+                        return self
+
+                    def write(self, text):
+                        if failure == "write":
+                            self.file.write(text[:10])
+                            raise OSError("synthetic partial write failure")
+                        return self.file.write(text)
+
+                    def __exit__(self, *args):
+                        result = self.file.__exit__(*args)
+                        closed.append(self.file.closed)
+                        if failure == "close":
+                            raise OSError("synthetic close failure")
+                        return result
+
+                def replace(source_path, destination):
+                    self.assertTrue(closed[-1], "publish only after successful close")
+                    if failure == "replace":
+                        raise OSError("synthetic replacement failure")
+                    return actual_replace(source_path, destination)
+
+                with patch.object(getter.tempfile, "NamedTemporaryFile", FaultyWriter), \
+                        patch.object(getter.os, "replace", replace):
+                    packages, outputs = getter.consolidate_go_files(directory)
+                self.assertEqual(outputs, [])
+                self.assertEqual(dict(packages), {"demo": ["input.go"]})
+                self.assertIn("context not generated", getter.format_package_map(packages, outputs))
+                self.assertEqual({path.name: path.read_bytes() for path in root.iterdir()}, before)
+                self.assertEqual(closed, [True])
+
+    def test_successful_publication_replaces_previous_context_after_close(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "input.go"
+            original = b"package demo\nfunc Example() {}\n"
+            source.write_bytes(original)
+            output = root / "demo_go.txt"
+            output.write_bytes(b"old context\n")
+            actual_replace = getter.os.replace
+
+            def replace(temporary, destination):
+                self.assertEqual(Path(destination).read_bytes(), b"old context\n")
+                self.assertIn("func Example() {}", Path(temporary).read_text(encoding="utf-8"))
+                return actual_replace(temporary, destination)
+
+            with patch.object(getter.os, "replace", replace):
+                packages, outputs = getter.consolidate_go_files(directory)
+            self.assertEqual(source.read_bytes(), original)
+            self.assertEqual(outputs, [str(output)])
+            self.assertIn("input.go", getter.format_package_map(packages, outputs))
+            self.assertFalse(list(root.glob(".gopilot-context-*.tmp")))
+
+    def test_existing_output_symlink_cannot_overwrite_go_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "input.go"
+            original = "package demo\nfunc Café() {}\n".encode("utf-8")
+            source.write_bytes(original)
+            output = root / "demo_go.txt"
+            output.symlink_to(source.name)
+            packages, outputs = getter.consolidate_go_files(directory)
+            self.assertEqual(source.read_bytes(), original)
+            self.assertFalse(output.is_symlink())
+            self.assertEqual(dict(packages), {"demo": ["input.go"]})
+            self.assertEqual(outputs, [str(output)])
+            self.assertIn("func Café() {}", output.read_text(encoding="utf-8"))
+            self.assertEqual(sorted(path.name for path in root.iterdir()), ["demo_go.txt", "input.go"])
+
     def consolidate(self, files):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -80,7 +170,7 @@ class ConsolidationTests(unittest.TestCase):
             self.assertEqual(source.read_bytes(), original)
 
     def test_failed_context_writes_remain_inventory_without_false_references(self):
-        builtin_open = open
+        original_replace = getter.os.replace
         for refused in ({"demo_go.txt"}, {"demo_go.txt", "other_go.txt"}):
             with self.subTest(refused=refused), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
@@ -89,12 +179,12 @@ class ConsolidationTests(unittest.TestCase):
                 for name, source in sources.items():
                     (root / name).write_text(source, encoding="utf-8")
 
-                def refuse_output(path, mode="r", *args, **kwargs):
-                    if mode == "w" and Path(path).name in refused:
+                def refuse_output(source, destination):
+                    if Path(destination).name in refused:
                         raise OSError("synthetic output refusal")
-                    return builtin_open(path, mode, *args, **kwargs)
+                    return original_replace(source, destination)
 
-                with patch.object(getter, "open", refuse_output, create=True):
+                with patch.object(getter.os, "replace", refuse_output):
                     packages, outputs = getter.consolidate_go_files(directory)
                 text = getter.format_package_map(packages, outputs)
                 self.assertEqual(dict(packages), {"demo": ["a.go"], "other": ["b.go"]})
@@ -109,6 +199,7 @@ class ConsolidationTests(unittest.TestCase):
                         self.assertIn(f"'{name}' contains {paths}", text)
                 for name, source in sources.items():
                     self.assertEqual((root / name).read_bytes(), source.encode("utf-8"))
+                self.assertFalse(list(root.glob(".gopilot-context-*.tmp")))
 
     def test_map_formatter_is_pure_and_tree_blurb_describes_aggregation(self):
         packages = {"demo": ["root.go", "nested/shared.go"], "other": ["other.go"]}

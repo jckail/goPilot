@@ -3,6 +3,7 @@ import re
 import logging
 import ast
 import json
+import tempfile
 from collections import defaultdict
 
 # Configure logging to write to stdout, which can be seen in the shell
@@ -118,6 +119,31 @@ def format_package_map(package_map, generated_outputs):
     return "".join(lines)
 
 
+def _publish_context(output_file_path, contents):
+    """Replace the output entry only after its private UTF-8 file closes.
+
+    The destination is never opened for writing, so an existing output symlink
+    cannot overwrite its target. This preserves old bytes on write/close/replace
+    failure; it does not promise crash durability or retain output metadata.
+    """
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", delete=False,
+                dir=os.path.dirname(output_file_path),
+                prefix=".gopilot-context-", suffix=".tmp") as temporary:
+            temporary_path = temporary.name
+            temporary.write(contents)
+        os.replace(temporary_path, output_file_path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            try:
+                os.unlink(temporary_path)
+            except FileNotFoundError:
+                pass
+
+
 def consolidate_go_files(directory):
     """Write per-package analysis context, not a guaranteed compilable Go file.
 
@@ -129,6 +155,11 @@ def consolidate_go_files(directory):
     Equivalent literal paths with the same alias are deduplicated and emitted
     as quoted paths. Different aliases, duplicate
     declarations, build tags and cgo context can still prevent compilation.
+
+    Outputs are privately created sibling files atomically replacing destination
+    entries after close. Existing output metadata is not retained. A package's
+    publication failure is logged, its source inventory remains in package_map,
+    and its destination is omitted from outputs; other packages still proceed.
     """
     outputs = []
 
@@ -177,10 +208,9 @@ def consolidate_go_files(directory):
         # Write the final content to the file in the passed directory
         output_file_path = os.path.join(directory, context_output_name(package_name))
         try:
-            with open(output_file_path, "w", encoding="utf-8") as f:
-                f.write(final_content)
-                logger.info(f"File written: {output_file_path}")
-                outputs.append(output_file_path)
+            _publish_context(output_file_path, final_content)
+            logger.info(f"File written: {output_file_path}")
+            outputs.append(output_file_path)
         except IOError as e:
             logger.error(f"Failed to write file: {output_file_path}, due to {e}")
 

@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 spec = importlib.util.spec_from_file_location(
@@ -14,6 +15,66 @@ spec.loader.exec_module(directory_tree)
 
 
 class TreeSuffixTests(unittest.TestCase):
+    def test_multilevel_tree_and_combined_context_ignore_enumeration_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            root = base / "project"
+            sources = {
+                "z.go": b"root z\n", "a.go": b"root a\n",
+                "alpha/z.go": b"alpha z\n", "alpha/a.go": b"alpha a\n",
+                "alpha/deep/café.go": b"deep source\n",
+                "beta/b.go": b"beta source\n",
+                ".hidden/private.go": b"hidden source\n",
+                "excluded/skip.go": b"excluded source\n",
+                "alpha/.hidden.go": b"hidden file\n",
+                "alpha/omit.go": b"excluded file\n",
+            }
+            for name, content in sources.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+            artifacts = []
+            traversals = []
+            for reverse in (False, True):
+                visited = []
+
+                def enumerate_tree(startpath, topdown=True):
+                    self.assertTrue(topdown)
+
+                    def visit(path):
+                        visited.append(path.relative_to(root).as_posix())
+                        entries = sorted(path.iterdir(), reverse=reverse)
+                        dirs = [entry.name for entry in entries if entry.is_dir()]
+                        files = [entry.name for entry in entries if entry.is_file()]
+                        yield str(path), dirs, files
+                        # Match os.walk's in-place recursion-pruning contract.
+                        for name in dirs:
+                            yield from visit(path / name)
+                    yield from visit(Path(startpath))
+
+                tree = base / "tree.txt"
+                legacy = base / "legacy.txt"
+                combined = base / "combined.txt"
+                with patch.object(directory_tree.os, "walk", enumerate_tree):
+                    directory_tree.save_dir_tree_to_file(
+                        str(root), str(tree), packages=["demo"],
+                        exclude=["excluded", "omit.go"],
+                    )
+                directory_tree.replace_suffix_in_file(str(tree), str(legacy))
+                directory_tree.append_files_with_blurb(
+                    str(tree), str(legacy), str(combined), "Source and legacy views",
+                )
+                artifacts.append(tuple(path.read_bytes() for path in (tree, legacy, combined)))
+                traversals.append(visited)
+            self.assertEqual(artifacts[0], artifacts[1])
+            self.assertEqual(traversals, [[".", "alpha", "alpha/deep", "beta"]] * 2)
+            text = artifacts[0][0].decode("utf-8")
+            self.assertLess(text.index("a.go"), text.index("z.go"))
+            for absent in (".hidden", "excluded", "omit.go", "private.go", "skip.go"):
+                self.assertNotIn(absent, text)
+            for name, content in sources.items():
+                self.assertEqual((root / name).read_bytes(), content)
+
     def convert(self, content):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "input.txt"
