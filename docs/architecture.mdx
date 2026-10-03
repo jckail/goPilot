@@ -23,6 +23,8 @@ flowchart TD
   Manager -. deleteAllFiles .-> Account[Account-level file deletion]
   Export[exportContext.py standard-library CLI] --> ExportRead[Read selected Go source]
   ExportRead --> ExportFiles[Fresh external analysis-context directory]
+  Builder[buildContext.py standard-library builder] --> Archive[Deterministic executable Python archive]
+  Archive --> ExportRead
 ```
 
 | Boundary | Source |
@@ -31,6 +33,7 @@ flowchart TD
 | Runtime config and orchestration | [main](../goHelpers/main.py) |
 | Context extraction | [getter](../goHelpers/getter.py), [tree](../goHelpers/directoryTree.py), [walker](../goHelpers/walkIt.py) |
 | Standalone context export | [export CLI](../goHelpers/exportContext.py), [operation contract](developer/cli.mdx#standalone-go-context-export) |
+| Standalone executable packaging | [archive builder](../goHelpers/buildContext.py), [installation contract](developer/cli.mdx#standalone-executable-and-local-installation) |
 | Optional context fetch | [HTML parser](../goHelpers/htmlParser.py) |
 | Provider lifecycle | [manager](../goHelpers/addGo.py) |
 | Error and link processing | [error parser](../goHelpers/errorParser.py), [chat parser](../goHelpers/chatParse.py) |
@@ -46,6 +49,10 @@ Tree generation first inventories the filtered source hierarchy, then renders it
 Only complete exports return 0 and print the destination path. Help returns 0 without side effects. Invalid arguments, source read/walk errors, publication or later write failures, and no eligible packages return 1 with a bounded one-line error. A created but incomplete destination is retained and reported rather than replacing existing output or writing generated files into the source. Analysis files are not guaranteed to compile, and exporting provides no atomic source snapshot, source-metadata preservation or crash-durability guarantee; POSIX directory creation establishes no Windows permission claim.
 
 The [export tests](../tests/test_export_context.py) exercise the standard-library CLI against isolated temporary projects, deterministic Unicode package bundles, source/prior-artifact preservation, destination rejection, actual read/publication errors and injected walk/later-write failures. A case-folding collision check is simulated, not a native Windows run. These checks establish no provider acceptance or Windows permission behavior.
+
+The standard-library archive builder embeds exactly the unchanged exporter, getter and tree modules with a bootstrap and source-hash manifest. Fixed archive metadata and ordering provide byte reproducibility from identical source bytes. Manifest hashes identify those bytes rather than signing them. The builder reads and validates sources before publishing a private, fully closed sibling staging file through an exclusive no-overwrite hard link, then removes the owned stage. Errors report actual publication and retained-stage state; a post-publication cleanup error does not imply an absent executable. Source inputs and prior artifacts are not replaced.
+
+The executable's GNU `env -S python3 -I -B -S` shebang selects an isolated, no-site Python runtime. The initial target is Linux CPython 3.10 with compatible GNU `env`; the archive needs that interpreter but no source checkout, virtual environment, dependency installation, provider or Go tool. Candidate user-local installation and artifact hash/mode/executable readback are distinct from source packaging, and neither installation nor readback is established by this architecture description. Crash durability, multiuser-race protection and native-platform/provider acceptance remain separate.
 
 The outer launcher stops on helper failure before thread-log cleanup, Go checks or parsers. A failed Go check still sends its diagnostics to the error parser. The error parser reads the report before constructing the manager and supplies its own helper directory for prompt/context paths. The maintained `all_run.sh` is source; Makefile `create_script` and `clean` preserve it.
 

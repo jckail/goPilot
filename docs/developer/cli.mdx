@@ -37,6 +37,30 @@ The exporter does not import the provider manager, require a key or dependency i
 
 The [export tests](../../tests/test_export_context.py) run the CLI with `python -B -S` from an external working directory against isolated temporary projects. They exercise deterministic multi-package Unicode context, source/prior-artifact preservation, help/argument validation, existing/dangling/nested/parent-symlink destination rejection, no eligible packages and actual source-read/package-publication failures. Injected source/tree-walk and late-write failures check incomplete-export reporting; a simulated case-folding collision checks that outputs cannot falsely represent distinct packages. This simulation is not native Windows qualification. Provider acceptance and Windows permission behavior remain separate.
 
+## Standalone executable and local installation
+
+From the repository root, [buildContext.py](../../goHelpers/buildContext.py) packages the standalone exporter with Python's standard library:
+
+```bash
+python3 -B goHelpers/buildContext.py NEW_OUTPUT_FILE
+```
+
+The output parent must already be a directory. The resolved output must be outside the source checkout, including when parent symlinks are resolved. Existing files, directories, symlinks and dangling links are rejected. The archive contains exactly unchanged `exportContext.py`, `getter.py` and `directoryTree.py`, plus `__main__.py` as its bootstrap and `manifest.json` identifying module and bootstrap hashes. The manifest identifies embedded source bytes without signing them or authenticating their publisher. Fixed member order, timestamps, modes, stored compression and sorted manifest data make builds reproducible for identical source bytes rather than build paths, source mtimes or Git labels.
+
+Source reads and syntax validation complete before publication. A private sibling staging file is written fully, assigned POSIX mode 0700 and closed before exclusive hard-link publication. Publication does not replace any destination entry; only the owned staging entry is removed afterward. Success returns 0 and prints only the executable path. Invalid arguments, source read/syntax errors, staging write/close failures, publication collisions and cleanup failures return 1 with a bounded single-line diagnostic. A cleanup failure can occur after the executable has been published, so use the diagnostic's published/retained-stage state rather than assuming every nonzero status means no artifact exists. Source files and prior artifacts remain untouched. Publication is not a crash-durability or multiuser-race guarantee.
+
+Direct execution uses `#!/usr/bin/env -S python3 -I -B -S`: compatible Python and GNU `env` with `-S` are required. The initial target is Linux CPython 3.10. Python runs in isolated mode without site-package initialization or bytecode writes. The embedded exporter needs no checkout, virtual environment, third-party dependencies, provider key or Go executable. It accepts `SOURCE NEW_OUTPUT_DIR` and `--help` with the same destination, success and incomplete-export behavior as the source entry. [Python 3.10 zipapp documentation](https://docs.python.org/3.10/library/zipapp.html) explains the archive/interpreter boundary.
+
+A candidate local deployment selects a new owned command in an existing external directory, after qualification of exact source and artifact bytes:
+
+```bash
+python3 -B goHelpers/buildContext.py "$HOME/.local/bin/gopilot-context"
+"$HOME/.local/bin/gopilot-context" --help
+"$HOME/.local/bin/gopilot-context" SOURCE NEW_OUTPUT_DIR
+```
+
+Quote source, export and executable paths containing spaces. If that command name already exists, select another fresh name; do not remove an unknown existing entry. Verify the published hash against the qualified archive and read back its mode and executable behavior before recording deployment. Rollback is limited to the exact owned installed bytes. This procedure is not evidence that installation or executable readback has occurred; other platforms and provider operations require separate acceptance.
+
 ## Provider-aware launchers
 
 | Source option | Meaning and limitation |
