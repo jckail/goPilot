@@ -9,49 +9,76 @@
 
 import os
 
+def _display_label(value):
+    """Escape ambiguous display characters without changing filesystem names."""
+    parts = []
+    for character in value:
+        code = ord(character)
+        if character == "\\":
+            parts.append("\\\\")
+        elif character.isprintable():
+            parts.append(character)
+        elif code <= 0xff:
+            parts.append(f"\\x{code:02x}")
+        elif code <= 0xffff:
+            parts.append(f"\\u{code:04x}")
+        else:
+            parts.append(f"\\U{code:08x}")
+    return ''.join(parts)
+
+
 def save_dir_tree_to_file(startpath, output_filepath, packages=None, exclude=None, *, strict_walk=False):
-    if exclude is None:
-        exclude = []
-    if packages is None:
-        packages = []
+    """Render a sorted source hierarchy; directory symlinks are non-followed leaves.
 
-    project_name = os.path.basename(startpath.rstrip(os.sep))  # Get the project name from the directory path
-    # Format the list of packages into a string
-    packages_list_str = (packages[0] if len(packages) == 1 else
-                         ', '.join(packages[:-1]) + ', and ' + packages[-1]) if packages else ''
+    Discovery finishes before output opens. This is not a filesystem snapshot.
+    """
+    exclude = [] if exclude is None else exclude
+    packages = [] if packages is None else packages
+    startpath = os.path.abspath(os.path.normpath(startpath))
+    project_name = _display_label(os.path.basename(startpath) or startpath)
+    displayed_packages = [_display_label(name) for name in packages]
+    packages_list_str = (displayed_packages[0] if len(displayed_packages) == 1 else
+                         ', '.join(displayed_packages[:-1]) + ', and ' + displayed_packages[-1]) if displayed_packages else ''
 
-    startpath = startpath.rstrip(os.sep)  # Remove the trailing separator for consistency
-    with open(output_filepath, 'w', encoding='utf-8') as f:
-        # Write the header with the list of packages
-        f.write(f"This go project is called: {project_name}'s here is it's current directory tree.\n")
+    def raise_walk_error(error):
+        raise error
+
+    inventory = {}
+    walk_options = {"onerror": raise_walk_error} if strict_walk else {}
+    for root, dirs, files in os.walk(startpath, topdown=True, **walk_options):
+        # os.walk's default followlinks=False preserves the existing discovery API.
+        dirs[:] = sorted(name for name in dirs if not name.startswith('.') and name not in exclude)
+        files = sorted(name for name in files if not name.startswith('.') and name not in exclude)
+        inventory[os.path.relpath(root, startpath)] = [
+            (name, True, os.path.islink(os.path.join(root, name))) for name in dirs
+        ] + [(name, False, False) for name in files]
+
+    with open(output_filepath, 'w', encoding='utf-8') as handle:
+        handle.write(f"This go project is called: {project_name}'s here is it's current directory tree.\n")
         if packages_list_str:
-            f.write(f"{project_name}'s current Go Packages are: {packages_list_str}\n\n")
+            handle.write(f"{project_name}'s current Go Packages are: {packages_list_str}\n\n")
+        handle.write(project_name + ('' if project_name.endswith(os.sep) else '/') + '\n')
+        # Stack avoids Python recursion limits and carries each ancestor's branch state.
+        stack = []
 
-        # Write the root directory name first
-        f.write('{}{}/\n'.format('', project_name))
-        # Make sure the rest of the path is relative
-        startpath_length = len(startpath)
-        def raise_walk_error(error):
-            raise error
+        def push_children(key, prefix):
+            entries = inventory.get(key, [])
+            for index in range(len(entries) - 1, -1, -1):
+                name, is_directory, is_link = entries[index]
+                stack.append((key, name, is_directory, is_link, prefix, index == len(entries) - 1))
 
-        walk_options = {"onerror": raise_walk_error} if strict_walk else {}
-        for root, dirs, files in os.walk(startpath, topdown=True, **walk_options):
-            # Exclude hidden directories and specified directories/files
-            # Mutate dirs so os.walk also visits descendants in stable order.
-            dirs[:] = sorted(d for d in dirs if not d.startswith('.') and d not in exclude)
-            files = sorted(fi for fi in files if not fi.startswith('.') and fi not in exclude)
-            # Get the relative path after the startpath
-            relative_root = root[startpath_length:].lstrip(os.sep)
-            level = relative_root.count(os.sep)
-            indent = '│   ' * level
-            subindent = '│   ' * (level + 1)
-            if relative_root and os.path.basename(root) not in exclude:
-                f.write('{}├── {}/\n'.format(indent, os.path.basename(root)))
-            for i, file in enumerate(files):
-                end_char = '├── ' if i < len(files) - 1 else '└── '
-                f.write('{}{}{}\n'.format(subindent, end_char, file))
+        push_children('.', '')
+        while stack:
+            key, name, is_directory, is_link, prefix, last = stack.pop()
+            label = _display_label(name) + ('/' if is_directory else '')
+            if is_link:
+                label += ' [directory symlink; not followed]'
+            handle.write(prefix + ('└── ' if last else '├── ') + label + '\n')
+            if is_directory and not is_link:
+                child_key = name if key == '.' else os.path.join(key, name)
+                push_children(child_key, prefix + ('    ' if last else '│   '))
 
-def replace_suffix_in_file(input_filepath, output_filepath):
+def replace_suffix_in_file(input_filepath, output_filepath, *, generated_tree=False):
     """Convert terminal Go file suffixes in generated tree entries only.
 
     Other text, directory names and line endings remain byte-for-byte intact.
@@ -64,7 +91,8 @@ def replace_suffix_in_file(input_filepath, output_filepath):
 
     # Generated file lines start with tree indentation and a branch marker.
     # A directory ends in '/', so it cannot match a terminal '.go' suffix.
-    file_entry = r'(?m)^((?:│   )+(?:├── |└── )[^\r\n]*)\.go(?=\r?$)'.encode('utf-8')
+    indentation = r'(?:│   |    )*' if generated_tree else r'(?:│   )+'
+    file_entry = (r'(?m)^(' + indentation + r'(?:├── |└── )[^\r\n]*)\.go(?=\r?$)').encode('utf-8')
     new_content = re.sub(file_entry, rb'\1_go.txt', content)
 
     with open(output_filepath, 'wb') as f:
@@ -97,14 +125,13 @@ if __name__ == "__main__":
     save_dir_tree_to_file('/home/ec2-user/projects/', 'results/directory_tree.txt',packages=_packages)
 
     # Example usage:
-    replace_suffix_in_file('results/directory_tree.txt', 'results/directory_tree_updated.txt')
+    replace_suffix_in_file('results/directory_tree.txt', 'results/directory_tree_updated.txt', generated_tree=True)
 
 
     # Example usage:
-    blurb_text = ("The directory tree above is a reflection of the actual directory tree, "
-                "the directory tree below is similar to what i've given you without the directories, "
-                "but simply take note that the contents of a \".go\" file are the same as the contents "
-                "of a \"_go.txt\" file in that you can map these trees one to one and they are identical.")
+    blurb_text = ("The first tree shows the discovered source hierarchy; "
+                  "the second is a suffix display view, not individual generated outputs. "
+                  "Use the package map for actual per-package context source identities.")
 
 
 

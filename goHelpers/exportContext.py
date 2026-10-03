@@ -74,11 +74,12 @@ def export_context(source, destination):
         directoryTree.save_dir_tree_to_file(
             str(source), str(tree), packages=sorted(package_map), strict_walk=True,
         )
-        directoryTree.replace_suffix_in_file(str(tree), str(legacy))
+        directoryTree.replace_suffix_in_file(str(tree), str(legacy), generated_tree=True)
         directoryTree.append_files_with_blurb(
             str(tree), str(legacy), str(destination / "projectDirectoryTree_context.txt"),
-            "These are the existing directory-tree and legacy suffix views; their "
-            "indentation is not a faithful filesystem topology. Use "
+            "The first tree shows the discovered source hierarchy with escaped labels "
+            "and non-followed directory symlink leaves. The second is a legacy "
+            "suffix display view, not individual generated outputs. Use "
             "package_map_context.txt and root-relative package source markers "
             "as the authoritative mapping. Aggregated context is not compilable Go.",
         )

@@ -84,11 +84,48 @@ class ExportContextTests(unittest.TestCase):
                 self.assertIn("'aux_go.txt' contains ['aux.go']", mapping)
                 self.assertNotIn("only_test.go", mapping)
                 self.assertIn("Go Packages are: aux, and demo\n", actual["directory_tree.txt"].decode("utf-8"))
-                self.assertIn("not a faithful filesystem topology", actual["projectDirectoryTree_context.txt"].decode("utf-8"))
+                self.assertIn("discovered source hierarchy", actual["projectDirectoryTree_context.txt"].decode("utf-8"))
+                self.assertIn("├── nested space/\n│   └── café.go\n", actual["directory_tree.txt"].decode("utf-8"))
+                self.assertIn("├── main.go\n", actual["directory_tree.txt"].decode("utf-8"))
+                self.assertIn("├── main_go.txt\n", actual["directory_tree_updated.txt"].decode("utf-8"))
                 self.assertIn("func Café() {}", actual["demo_go.txt"].decode("utf-8"))
                 artifacts.append(actual)
                 self.assertEqual({p.relative_to(source): p.read_bytes() for p in source.rglob("*") if p.is_file()}, before)
             self.assertEqual(artifacts[0], artifacts[1])
+
+    def test_subprocess_combined_hierarchy_escapes_names_and_does_not_follow_directory_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            original = self.source(base)
+            source = base / "Go\nsource\\literal"
+            original.rename(source)
+            weird = source / "line\none.go"
+            weird.write_bytes(b"package demo\nfunc Other() {}\n")
+            (source / "empty").mkdir()
+            target = base / "outside"
+            target.mkdir()
+            secret = target / "unfollowed.go"
+            secret.write_bytes(b"package outside\nfunc Outside() {}\n")
+            (source / "alias.go").symlink_to(target, target_is_directory=True)
+            destination = base / "export"
+            result = self.launch(source, destination, cwd=base)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, str(destination) + "\n")
+            tree = (destination / "directory_tree.txt").read_text(encoding="utf-8")
+            expected_rows = [r"Go\x0asource\\literal/",
+                             "├── alias.go/ [directory symlink; not followed]",
+                             "├── empty/", r"├── line\x0aone.go", "└── main.go"]
+            self.assertEqual(tree.splitlines()[3:], expected_rows)
+            converted = (destination / "directory_tree_updated.txt").read_text(encoding="utf-8")
+            self.assertIn(r"├── line\x0aone_go.txt", converted)
+            self.assertIn("└── main_go.txt", converted)
+            self.assertNotIn("unfollowed.go", tree)
+            combined = (destination / "projectDirectoryTree_context.txt").read_text(encoding="utf-8")
+            self.assertTrue(combined.startswith(tree))
+            self.assertTrue(combined.endswith(converted))
+            self.assertEqual(weird.read_bytes(), b"package demo\nfunc Other() {}\n")
+            self.assertEqual(secret.read_bytes(), b"package outside\nfunc Outside() {}\n")
+            self.assertTrue((source / "alias.go").is_symlink())
 
     def test_help_and_argument_failures_create_nothing(self):
         with tempfile.TemporaryDirectory() as directory:
