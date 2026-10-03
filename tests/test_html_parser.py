@@ -23,12 +23,25 @@ EXPECTED_NAME = "web-example-dev-docs-" + hashlib.sha256(URL.encode("utf-8")).he
 class HtmlEntryTests(unittest.TestCase):
     def execute(self, arguments, *, main=True, failure=None, fragment=False):
         self.calls = []
+        self.request_kwargs = []
         self.stdout = io.StringIO()
         self.stderr = io.StringIO()
         requests = types.ModuleType("requests")
         requests.HTTPError = type("HTTPError", (Exception,), {})
-        def get(url):
+        requests.Timeout = type("Timeout", (Exception,), {})
+        requests.ConnectTimeout = type("ConnectTimeout", (requests.Timeout,), {})
+        requests.ReadTimeout = type("ReadTimeout", (requests.Timeout,), {})
+        requests.ConnectionError = type("ConnectionError", (Exception,), {})
+        timeout_failures = {
+            "connect_timeout": requests.ConnectTimeout,
+            "read_timeout": requests.ReadTimeout,
+            "body_timeout": requests.ConnectionError,
+        }
+        def get(url, **kwargs):
             self.calls.append(("get", url))
+            self.request_kwargs.append(kwargs)
+            if failure in timeout_failures:
+                raise timeout_failures[failure]("synthetic timeout\nwhile fetching")
             if failure == "generic": raise RuntimeError("synthetic fetch failure")
             def check_status():
                 if failure == "http": raise requests.HTTPError("synthetic HTTP failure")
@@ -48,8 +61,43 @@ class HtmlEntryTests(unittest.TestCase):
         with patch.dict(sys.modules, {"requests": requests, "bs4": bs4}), patch.object(sys, "argv", [str(SCRIPT), *arguments]), contextlib.redirect_stdout(self.stdout), contextlib.redirect_stderr(self.stderr):
             namespace = runpy.run_path(str(SCRIPT), run_name="__main__" if main else "inert_helper")
             if not main:
-                namespace["fetchWebData"](*arguments)
+                self.result = namespace["fetchWebData"](*arguments)
             return namespace
+
+    def test_successful_fetch_passes_explicit_connect_and_read_timeouts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.execute([URL, directory])
+            self.assertEqual(self.request_kwargs, [{"timeout": (5, 15)}])
+            self.assertEqual(self.calls[0], ("get", URL))
+            self.assertEqual((Path(directory) / "additionalcontext" / EXPECTED_NAME).read_text(), EXPECTED)
+
+    def test_timeout_failures_preserve_context_for_direct_and_cli_entries(self):
+        for failure in ["connect_timeout", "read_timeout", "body_timeout"]:
+            for main in [False, True]:
+                for existing in [False, True]:
+                    with self.subTest(failure=failure, main=main, existing=existing), tempfile.TemporaryDirectory() as directory:
+                        context = Path(directory) / "additionalcontext"
+                        before = {}
+                        if existing:
+                            context.mkdir()
+                            before = {EXPECTED_NAME: b"previous complete context\n", "sibling_context.txt": b"sibling retained\n"}
+                            for name, data in before.items():
+                                (context / name).write_bytes(data)
+                        if main:
+                            with self.assertRaises(SystemExit) as error:
+                                self.execute([URL, directory], failure=failure)
+                            self.assertEqual(error.exception.code, 1)
+                        else:
+                            self.execute([URL, directory], main=False, failure=failure)
+                            self.assertIs(self.result, False)
+                        self.assertEqual(self.calls, [("get", URL)])
+                        self.assertEqual(self.request_kwargs, [{"timeout": (5, 15)}])
+                        self.assertEqual(self.stdout.getvalue(), "")
+                        self.assertEqual(self.stderr.getvalue(), "Other error occurred: synthetic timeout while fetching\n")
+                        if existing:
+                            self.assertEqual({p.name: p.read_bytes() for p in context.iterdir()}, before)
+                        else:
+                            self.assertFalse(context.exists())
 
     def test_actual_entry_creates_portable_context_for_helper_paths_with_spaces(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -8,9 +8,16 @@ import requests
 from bs4 import BeautifulSoup
 
 
+CONNECT_TIMEOUT_SECONDS = 5
+READ_TIMEOUT_SECONDS = 15
+
+
 def fetch_html(url):
+    """Fetch with finite connection/read-inactivity limits, not a total deadline."""
     try:
-        response = requests.get(url)
+        response = requests.get(
+            url, timeout=(CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS)
+        )
         response.raise_for_status()  # Raises an HTTPError if the HTTP request returned an unsuccessful status code
         return response.text
     except requests.HTTPError as http_err:
