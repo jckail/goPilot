@@ -80,7 +80,6 @@ class ConsolidationTests(unittest.TestCase):
             self.assertEqual(source.read_bytes(), original)
 
     def test_failed_context_writes_remain_inventory_without_false_references(self):
-        builtin_open = open
         for refused in ({"demo_go.txt"}, {"demo_go.txt", "other_go.txt"}):
             with self.subTest(refused=refused), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
@@ -89,12 +88,14 @@ class ConsolidationTests(unittest.TestCase):
                 for name, source in sources.items():
                     (root / name).write_text(source, encoding="utf-8")
 
-                def refuse_output(path, mode="r", *args, **kwargs):
-                    if mode == "w" and Path(path).name in refused:
-                        raise OSError("synthetic output refusal")
-                    return builtin_open(path, mode, *args, **kwargs)
+                real_replace = getter.os.replace
 
-                with patch.object(getter, "open", refuse_output, create=True):
+                def refuse_output(source, destination):
+                    if Path(destination).name in refused:
+                        raise OSError("synthetic output refusal")
+                    return real_replace(source, destination)
+
+                with patch.object(getter.os, "replace", refuse_output):
                     packages, outputs = getter.consolidate_go_files(directory)
                 text = getter.format_package_map(packages, outputs)
                 self.assertEqual(dict(packages), {"demo": ["a.go"], "other": ["b.go"]})
@@ -334,6 +335,216 @@ class ConsolidationTests(unittest.TestCase):
         self.assertNotIn("TestMain", outputs["main_go.txt"])
         self.assertNotIn('"testing"', outputs["main_go.txt"])
         self.assertNotIn("func Help", outputs["main_go.txt"])
+
+    def test_output_symlink_to_source_is_replaced_without_overwriting_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "input.go"
+            original = "package demo\nfunc Keep() {}\n".encode("utf-8")
+            source.write_bytes(original)
+            output = root / "demo_go.txt"
+            output.symlink_to(source)
+            packages, outputs = getter.consolidate_go_files(directory)
+            self.assertEqual(dict(packages), {"demo": ["input.go"]})
+            self.assertEqual([Path(path).name for path in outputs], ["demo_go.txt"])
+            self.assertFalse(output.is_symlink())
+            self.assertEqual(source.read_bytes(), original)
+            text = output.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("package demo\n"))
+            self.assertIn("func Keep()", text)
+            self.assertNotEqual(output.read_bytes(), original)
+            self.assertEqual(sorted(path.name for path in root.iterdir()), ["demo_go.txt", "input.go"])
+
+    def test_successful_replace_publishes_utf8_and_keeps_unrelated_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "input.go"
+            original = "package demo\nfunc Café() {}\n".encode("utf-8")
+            source.write_bytes(original)
+            output = root / "demo_go.txt"
+            output.write_bytes("previous complete context\n".encode("utf-8"))
+            sibling = root / "unrelated.txt"
+            sibling.write_bytes(b"sibling retained")
+            packages, outputs = getter.consolidate_go_files(directory)
+            self.assertEqual(dict(packages), {"demo": ["input.go"]})
+            self.assertEqual([Path(path).name for path in outputs], ["demo_go.txt"])
+            text = output.read_text(encoding="utf-8")
+            self.assertIn("func Café()", text)
+            self.assertNotIn("previous complete context", text)
+            self.assertEqual(source.read_bytes(), original)
+            self.assertEqual(sibling.read_bytes(), b"sibling retained")
+            self.assertEqual(
+                sorted(path.name for path in root.iterdir()),
+                ["demo_go.txt", "input.go", "unrelated.txt"],
+            )
+
+    def _source_tree(self, root):
+        source = root / "input.go"
+        original = "package demo\nfunc Keep() {}\n".encode("utf-8")
+        source.write_bytes(original)
+        output = root / "demo_go.txt"
+        output.write_bytes(b"previous complete context\n")
+        sibling = root / "unrelated.txt"
+        sibling.write_bytes(b"sibling retained")
+        return source, original, output, sibling
+
+    def test_partial_write_preserves_previous_output_source_and_omits_success(self):
+        real_fdopen = getter.os.fdopen
+
+        class PartialWriter:
+            def __init__(self, descriptor, *args, **kwargs):
+                self.file = real_fdopen(descriptor, *args, **kwargs)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.file.close()
+
+            def write(self, text):
+                self.file.write(text[:7])
+                self.file.flush()
+                raise OSError("synthetic partial write failure")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, original, output, sibling = self._source_tree(root)
+            with patch.object(getter.os, "fdopen", PartialWriter):
+                packages, outputs = getter.consolidate_go_files(directory)
+            self.assertEqual(outputs, [])
+            self.assertEqual(dict(packages), {"demo": ["input.go"]})
+            self.assertEqual(output.read_bytes(), b"previous complete context\n")
+            self.assertFalse(output.is_symlink())
+            self.assertEqual(source.read_bytes(), original)
+            self.assertEqual(sibling.read_bytes(), b"sibling retained")
+            self.assertEqual(
+                sorted(path.name for path in root.iterdir()),
+                ["demo_go.txt", "input.go", "unrelated.txt"],
+            )
+
+    def test_partial_write_does_not_follow_output_symlink_to_source(self):
+        real_fdopen = getter.os.fdopen
+
+        class PartialWriter:
+            def __init__(self, descriptor, *args, **kwargs):
+                self.file = real_fdopen(descriptor, *args, **kwargs)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.file.close()
+
+            def write(self, text):
+                self.file.write(text[:7])
+                self.file.flush()
+                raise OSError("synthetic partial write failure")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "input.go"
+            original = "package demo\nfunc Keep() {}\n".encode("utf-8")
+            source.write_bytes(original)
+            output = root / "demo_go.txt"
+            output.symlink_to(source)
+            with patch.object(getter.os, "fdopen", PartialWriter):
+                packages, outputs = getter.consolidate_go_files(directory)
+            self.assertEqual(outputs, [])
+            self.assertEqual(list(packages["demo"]), ["input.go"])
+            self.assertTrue(output.is_symlink())
+            self.assertEqual(source.read_bytes(), original)
+            self.assertEqual(sorted(path.name for path in root.iterdir()), ["demo_go.txt", "input.go"])
+
+    def test_close_and_replace_failures_preserve_context_and_clean_owned_temps(self):
+        real_fdopen = getter.os.fdopen
+        real_replace = getter.os.replace
+
+        class FailedClose:
+            def __init__(self, descriptor, *args, **kwargs):
+                self.file = real_fdopen(descriptor, *args, **kwargs)
+
+            def __enter__(self):
+                return self.file
+
+            def __exit__(self, *args):
+                self.file.close()
+                raise OSError("synthetic close failure")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, original, output, sibling = self._source_tree(root)
+            for label, inject in (
+                ("close", patch.object(getter.os, "fdopen", FailedClose)),
+                ("replace", patch.object(getter.os, "replace", side_effect=OSError("synthetic replace failure"))),
+                ("absent-close", patch.object(getter.os, "fdopen", FailedClose)),
+            ):
+                with self.subTest(label=label):
+                    if label == "absent-close":
+                        output.unlink()
+                    else:
+                        output.write_bytes(b"previous complete context\n")
+                    with inject:
+                        packages, outputs = getter.consolidate_go_files(directory)
+                    self.assertEqual(outputs, [])
+                    self.assertEqual(list(packages["demo"]), ["input.go"])
+                    self.assertEqual(source.read_bytes(), original)
+                    self.assertEqual(sibling.read_bytes(), b"sibling retained")
+                    if label == "absent-close":
+                        self.assertFalse(output.exists())
+                        self.assertEqual(
+                            sorted(path.name for path in root.iterdir()),
+                            ["input.go", "unrelated.txt"],
+                        )
+                    else:
+                        self.assertEqual(output.read_bytes(), b"previous complete context\n")
+                        self.assertEqual(
+                            sorted(path.name for path in root.iterdir()),
+                            ["demo_go.txt", "input.go", "unrelated.txt"],
+                        )
+            self.assertIs(getter.os.replace, real_replace)
+
+    def test_replace_runs_only_after_staging_is_closed_and_only_success_is_reported(self):
+        real_fdopen = getter.os.fdopen
+        real_replace = getter.os.replace
+        opened = []
+
+        def capture_fdopen(*args, **kwargs):
+            file = real_fdopen(*args, **kwargs)
+            opened.append(file)
+            return file
+
+        def checked_replace(staging, destination):
+            self.assertTrue(opened[-1].closed)
+            staged = Path(staging).read_text(encoding="utf-8")
+            self.assertNotIn("\ufeff", staged)
+            if Path(destination).name == "demo_go.txt":
+                self.assertIn("func Keep()", staged)
+                raise OSError("synthetic replace failure")
+            self.assertIn("func Other()", staged)
+            real_replace(staging, destination)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            demo = root / "a.go"
+            demo.write_text("package demo\nfunc Keep() {}\n", encoding="utf-8")
+            other = root / "b.go"
+            other.write_text("package other\nfunc Other() {}\n", encoding="utf-8")
+            previous = root / "demo_go.txt"
+            previous.write_bytes(b"previous demo context\n")
+            with patch.object(getter.os, "fdopen", capture_fdopen), patch.object(getter.os, "replace", checked_replace):
+                packages, outputs = getter.consolidate_go_files(directory)
+            self.assertEqual(dict(packages), {"demo": ["a.go"], "other": ["b.go"]})
+            self.assertEqual([Path(path).name for path in outputs], ["other_go.txt"])
+            self.assertEqual(previous.read_bytes(), b"previous demo context\n")
+            self.assertIn("func Other()", (root / "other_go.txt").read_text(encoding="utf-8"))
+            self.assertEqual(demo.read_bytes(), b"package demo\nfunc Keep() {}\n")
+            self.assertEqual(other.read_bytes(), b"package other\nfunc Other() {}\n")
+            names = sorted(path.name for path in root.iterdir())
+            self.assertEqual(names, ["a.go", "b.go", "demo_go.txt", "other_go.txt"])
+            text = getter.format_package_map(packages, outputs)
+            self.assertNotIn("demo_go.txt", text)
+            self.assertIn("'other_go.txt' contains ['b.go']", text)
+            self.assertIn("'demo': context not generated; sources ['a.go']", text)
 
 
 if __name__ == "__main__":
