@@ -21,7 +21,7 @@ EXPECTED_NAME = "web-example-dev-docs-" + hashlib.sha256(URL.encode("utf-8")).he
 
 
 class HtmlEntryTests(unittest.TestCase):
-    def execute(self, arguments, *, main=True, failure=None):
+    def execute(self, arguments, *, main=True, failure=None, fragment=False):
         self.calls = []
         self.stdout = io.StringIO()
         self.stderr = io.StringIO()
@@ -32,7 +32,7 @@ class HtmlEntryTests(unittest.TestCase):
             if failure == "generic": raise RuntimeError("synthetic fetch failure")
             def check_status():
                 if failure == "http": raise requests.HTTPError("synthetic HTTP failure")
-            return types.SimpleNamespace(text=HTML, raise_for_status=check_status)
+            return types.SimpleNamespace(text="<p>fragment 雪</p><div>func Fragment() {} ¶</div>" if fragment else HTML, raise_for_status=check_status)
         requests.get = get
         bs4 = types.ModuleType("bs4")
         def soup(content, parser):
@@ -41,6 +41,8 @@ class HtmlEntryTests(unittest.TestCase):
             # The adapter supplies a small document structure. Actual production
             # extraction/formatting code runs; real BeautifulSoup is not qualified.
             body = types.SimpleNamespace(descendants=["Reference", types.SimpleNamespace(name="p"), "func Example() {} ¶"])
+            if fragment:
+                return types.SimpleNamespace(body=None, descendants=["fragment 雪", types.SimpleNamespace(name="p"), "func Fragment() {} ¶"], find_all=lambda *args, **kwargs: [])
             return types.SimpleNamespace(body=body, find_all=lambda *args, **kwargs: [])
         bs4.BeautifulSoup = soup
         with patch.dict(sys.modules, {"requests": requests, "bs4": bs4}), patch.object(sys, "argv", [str(SCRIPT), *arguments]), contextlib.redirect_stdout(self.stdout), contextlib.redirect_stderr(self.stderr):
@@ -66,6 +68,15 @@ class HtmlEntryTests(unittest.TestCase):
                         self.assertEqual(self.stderr.getvalue(), "")
             finally:
                 os.chdir(original)
+
+    def test_bodyless_fragment_entry_formats_and_saves_complete_context(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.execute([URL, directory], fragment=True)
+            output = Path(directory) / "additionalcontext" / EXPECTED_NAME
+            self.assertEqual(output.read_text(encoding="utf-8"), "fragment 雪\n\nfunc Fragment() {}")
+            self.assertEqual(self.stderr.getvalue(), "")
+            self.assertIn("Processed text saved to", self.stdout.getvalue())
+            self.assertEqual(list(output.parent.iterdir()), [output])
 
     def test_existing_directory_and_sentinel_are_preserved_for_direct_caller(self):
         with tempfile.TemporaryDirectory() as directory:
