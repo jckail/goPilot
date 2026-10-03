@@ -49,7 +49,8 @@ def process_html(html_content):
         div.insert_after("\n")
 
     # Process the text for 'func' lines
-    modified_html_text = extract_text_with_formatting(soup.body)
+    content_root = soup.body if soup.body is not None else soup
+    modified_html_text = extract_text_with_formatting(content_root)
     lines = modified_html_text.split("\n")
     processed_lines = []
 
