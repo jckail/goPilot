@@ -2,5 +2,6 @@ goHelpers/uploads/*
 goHelpers/results/*
 goHelpers/additionalcontext/*
 .env
+.venv-html/
 
 goHelpers/__pycache__/*

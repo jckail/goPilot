@@ -1,0 +1,7 @@
+# Direct dependencies for the standalone HTML helper only.
+# Install requirements-html.txt: its complete dependency set has versions and hashes.
+# Initial qualification target: Linux, CPython 3.10.
+# https://pypi.org/pypi/requests/2.34.2/json
+requests==2.34.2
+# https://pypi.org/pypi/beautifulsoup4/4.15.0/json
+beautifulsoup4==4.15.0

@@ -55,7 +55,45 @@ In the shared native WSL workspace, coordinate with the existing verification ow
 /home/jkail/.local/bin/agent-heavy-check -- python3 -B -m unittest discover -s tests -v
 ```
 
-Run the gate in the foreground. Admission exit 75 means the suite did not run; report the contention instead of repeatedly queueing an unchanged check or bypassing the gate. See the [operation guide](docs/developer/cli.mdx) for verification boundaries. Python dependencies are not pinned; the helper Makefile's `install` target changes the environment. `all_run.sh` is maintained source: `create_script` checks its presence and `clean` preserves it; neither regenerates nor deletes the tracked wrapper.
+Run the gate in the foreground. Admission exit 75 means the suite did not run; report the contention instead of repeatedly queueing an unchanged check or bypassing the gate. See the [operation guide](docs/developer/cli.mdx) for verification boundaries. The legacy helper Makefile's `install` target installs unpinned provider and other Python dependencies into its selected environment. Use the separate HTML environment below for standalone fetching. `all_run.sh` is maintained source: `create_script` checks its presence and `clean` preserves it; neither regenerates nor deletes the tracked wrapper.
+
+## Standalone HTML environment
+
+The HTML helper needs Requests and Beautiful Soup, independently of OpenAI, provider keys and Go tools. [requirements-html.in](requirements-html.in) records the direct pins; [requirements-html.txt](requirements-html.txt) records the complete dependency set with exact versions and SHA-256 hashes. Install the `.txt` file into an isolated `.venv-html`, rather than running the legacy Make install target. The initial qualification target is Linux with CPython 3.10; other environments require separate qualification.
+
+From the repository root, use a Python installation with `venv` and `ensurepip` available:
+
+```bash
+python3 -m venv .venv-html
+.venv-html/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements-html.txt
+.venv-html/bin/python -m pip check
+PATH="$PWD/.venv-html/bin:$PATH" bash goHelpers/scrapeWeb.sh 'https://example.org/docs'
+```
+
+On GamingRig, the native Python 3.10 lacks the `ensurepip` prerequisite. The installed uv 0.12.10 supports this alternative environment bootstrap; use it instead of the first command, then run the same explicit pip and fetch commands:
+
+```bash
+uv venv --python /usr/bin/python3 --no-python-downloads --seed --no-config .venv-html
+```
+
+The uv bootstrap can download installer seed packages; their versions are separate from the application dependency pins. [Python venv](https://docs.python.org/3/library/venv.html) and [uv venv](https://docs.astral.sh/uv/reference/cli/#uv-venv) document these environment operations. In the shared WSL workspace, installations and runtime qualification use the existing owner and foreground heavy-check gate.
+
+The quoted PATH selects the environment's `python3` for the shell command, including checkout paths containing spaces. To select the interpreter directly, use `.venv-html/bin/python goHelpers/htmlParser.py 'https://example.org/docs' "$PWD/goHelpers"`. Both commands save context under the chosen helper's `additionalcontext` directory. Recreate the environment at its destination when moving a checkout.
+
+Regenerate the lock with uv 0.12.10 for the same Linux CPython 3.10 target. Run from the repository root with that interpreter available:
+
+```bash
+uv pip compile requirements-html.in \
+  --python /usr/bin/python3 --python-version 3.10 \
+  --python-platform x86_64-unknown-linux-gnu --generate-hashes \
+  --only-binary :all: --output-file requirements-html.txt \
+  --default-index https://pypi.org/simple --keyring-provider disabled \
+  --no-config --no-python-downloads
+```
+
+In the shared WSL workspace, dependency resolution also uses the foreground heavy-check gate. Review and commit the complete generated `.txt` file. Installing that committed lock reproduces application versions; resolving after changing the input or tool can select different versions and requires fresh installation and runtime qualification. Keep provider packages outside this standalone dependency set.
+
+Local GamingRig qualification on 2026-10-03 used CPython 3.10.12 and uv 0.12.10. Two fresh environments installed identical application versions from the hash lock, passed `pip check`, and rejected an intentionally corrupted package hash. The bootstrap seed packages were pip 26.2.1, setuptools 84.0.0, wheel 0.48.0 and packaging 26.3. All 69 offline tests passed without skips. Seven real loopback cases covered a full document, repeated URL, body-less fragment, HTTP 404, refused connection, stalled headers and a stalled partial body; failed fetches preserved existing context, and owned server/temporary fixtures were cleaned up. This qualifies the documented Linux environment and local HTTP behavior; it does not qualify provider APIs, external websites or other platforms. A refused connection checks failure routing, not a measured connection-timeout deadline.
 
 The repository has no license file identified in this snapshot. Existing source and the original README remain the attribution/provenance reference; this documentation adds no license grant.
 
@@ -71,6 +109,6 @@ HTML fetching passes explicit positive timeout values to Requests: 5 seconds for
 
 Context output is written as UTF-8 to a private temporary file in the destination directory, closed, then atomically replaced. Failed writes, closes or replacements preserve the previous destination bytes and clean up the owned staging file. Successful output uses private file permissions (0600 on POSIX). Replacement changes the file inode and replaces a destination symlink itself without writing through to its target; existing modes and hard-link sharing are not preserved. This provides atomic file visibility, not power-loss durability. Offline tests cover synthetic failures and actual temporary-file writes; they do not qualify live networking or provider integration.
 
-From this checkout, use `bash goHelpers/scrapeWeb.sh 'https://example.org/docs'` to fetch one URL without invoking the provider-aware manager. The shell command locates the adjacent `htmlParser.py`, forwards the exact quoted URL and helper directory, preserves the caller's working directory and returns the helper's exit status unchanged. It preserves stdout/stderr instead of adding a success fallback. Missing, extra or blank arguments return 1 with usage on stderr; `-h` and `--help` return 0 with usage on stdout before dispatch. Invoke the script in its checkout directory layout; an external symlink must also have the helper beside it. Copied-script tests use inert Python adapters and do not qualify live fetch dependencies or networking.
+After installing the standalone HTML environment above, use `PATH="$PWD/.venv-html/bin:$PATH" bash goHelpers/scrapeWeb.sh 'https://example.org/docs'` from this checkout to fetch one URL without invoking the provider-aware manager. The shell command locates the adjacent `htmlParser.py`, forwards the exact quoted URL and helper directory, preserves the caller's working directory and returns the helper's exit status unchanged. It preserves stdout/stderr instead of adding a success fallback. Missing, extra or blank arguments return 1 with usage on stderr; `-h` and `--help` return 0 with usage on stdout before dispatch. Invoke the script in its checkout directory layout; an external symlink must also have the helper beside it. Copied-script tests use inert Python adapters and do not qualify live fetch dependencies or networking.
 
 Body-less HTML fragments are accepted: when no body element exists, formatting uses the parsed fragment tree. Existing body-document index/navigation removal and function formatting are preserved. The fragment regression runs the actual helper entry with an inert HTML adapter. Real HTTP/BeautifulSoup qualification requires a separate local fixture run; the adapter test does not establish external network or provider compatibility.
