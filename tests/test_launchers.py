@@ -24,6 +24,10 @@ if name == 'python3':
     if script == 'errorParser.py':
         print('View response here: https://example.invalid/inert-thread')
         sys.exit(int(os.environ.get('GOPILOT_FIXTURE_PARSER_EXIT', '0')))
+    if script == 'htmlParser.py':
+        status = int(os.environ.get('GOPILOT_FIXTURE_HTML_EXIT', '0'))
+        print('inert HTML failure' if status else 'inert HTML context saved', file=sys.stderr if status else sys.stdout)
+        sys.exit(status)
     if script != 'chatParse.py': sys.exit(99)
 else:
     print('inert example.go diagnostic')
@@ -39,7 +43,7 @@ class LauncherTests(unittest.TestCase):
         self.repo = root / "checkout with spaces"
         self.helper = self.repo / "goHelpers"
         self.helper.mkdir(parents=True)
-        for filename in ["ezRun.sh", "goHelpers/all_run.sh", "goHelpers/makefile"]:
+        for filename in ["ezRun.sh", "goHelpers/all_run.sh", "goHelpers/makefile", "goHelpers/scrapeWeb.sh", "goHelpers/htmlParser.py"]:
             shutil.copyfile(ROOT / filename, self.repo / filename)
         self.cwd = root / "caller Go project"
         self.cwd.mkdir()
@@ -93,6 +97,39 @@ class LauncherTests(unittest.TestCase):
         result = self.run_script("goHelpers/all_run.sh", ["-d", str(self.context)], GOPILOT_FIXTURE_MAIN_EXIT="37")
         self.assertEqual(result.returncode, 37, result.stderr)
         self.assertEqual(self.calls()[0]["args"], [str(self.helper / "main.py"), str(self.context), str(self.helper), "false", "false"])
+
+    def test_scrape_uses_adjacent_helper_exact_url_and_preserves_caller_cwd(self):
+        for url in ["https://example.dev/a path?q=%20&next=$literal#fragment", "-literal-url"]:
+            with self.subTest(url=url):
+                result = self.run_script("goHelpers/scrapeWeb.sh", [url], CDPATH=str(self.context))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, "inert HTML context saved\n")
+                self.assertEqual(result.stderr, "")
+                self.assertEqual(self.calls()[-1], {"command": "python3", "args": [str(self.helper / "htmlParser.py"), url, str(self.helper)], "cwd": str(self.cwd)})
+                self.assertFalse((self.helper / "results").exists())
+
+    def test_scrape_preserves_helper_failure_status_and_streams(self):
+        for status in [1, 42, 127]:
+            with self.subTest(status=status):
+                result = self.run_script("goHelpers/scrapeWeb.sh", ["https://example.dev"], GOPILOT_FIXTURE_HTML_EXIT=str(status))
+                self.assertEqual(result.returncode, status, result.stderr)
+                self.assertEqual(result.stdout, "")
+                self.assertEqual(result.stderr, "inert HTML failure\n")
+                self.assertEqual(len(self.calls()), [1, 42, 127].index(status) + 1)
+
+    def test_scrape_help_and_invalid_arguments_do_not_dispatch(self):
+        for flag in ["-h", "--help"]:
+            result = self.run_script("goHelpers/scrapeWeb.sh", [flag])
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Usage:", result.stdout)
+            self.assertEqual(result.stderr, "")
+        for args in [[], ["one", "two"], [""], [" \t\n"]]:
+            with self.subTest(args=args):
+                result = self.run_script("goHelpers/scrapeWeb.sh", args)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stdout, "")
+                self.assertIn("Usage:", result.stderr)
+        self.assertEqual(self.calls(), [])
 
     def test_outer_helper_failure_stops_before_cleanup_checks_or_parsers(self):
         sentinel = self.sentinel()
@@ -172,7 +209,7 @@ class LauncherTests(unittest.TestCase):
         calls = self.calls()
         self.assertEqual([Path(call["args"][0]).name for call in calls if call["command"] == "python3"], ["main.py", "errorParser.py"])
 
-    @unittest.skipUnless(shutil.which("make"), "make is unavailable; named-target execution requires hosted verification")
+    @unittest.skipUnless(shutil.which("make"), "make is unavailable; named-target execution requires local verification with Make")
     def test_make_targets_preserve_maintained_wrapper(self):
         before = (self.helper / "all_run.sh").read_bytes()
         result = subprocess.run(["make", "-C", str(self.helper), "create_script", "clean"], cwd=self.cwd,

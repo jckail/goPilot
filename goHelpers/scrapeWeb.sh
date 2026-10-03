@@ -1,16 +1,24 @@
 #!/bin/bash
 
-# Check if one argument is given
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <URL>"
+usage() {
+    printf 'Usage: %s <URL>\n' "$0"
+}
+
+if [[ "$#" -ne 1 ]]; then
+    usage >&2
     exit 1
 fi
 
-# Hard-code the working directory to the current directory when this Makefile is run
-WORKINGDIRECTORY=/home/ec2-user/projects/goHelper/goHelpers
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    usage
+    exit 0
+fi
 
-# Assign the argument to a variable
-URL=$1
+if [[ ! "$1" =~ [^[:space:]] ]]; then
+    usage >&2
+    exit 1
+fi
 
-# Run the Python script with the two directories as arguments
-python3 "$WORKINGDIRECTORY/htmlParser.py" "$URL" "$WORKINGDIRECTORY"|| echo "The python script failed to execute"
+# Resolve the adjacent helper without changing the caller's working directory.
+HELPER_DIRECTORY=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd) || exit 1
+exec python3 "$HELPER_DIRECTORY/htmlParser.py" "$1" "$HELPER_DIRECTORY"
