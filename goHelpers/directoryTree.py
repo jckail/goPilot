@@ -31,9 +31,10 @@ def save_dir_tree_to_file(startpath, output_filepath, packages=None, exclude=Non
         # Make sure the rest of the path is relative
         startpath_length = len(startpath)
         for root, dirs, files in os.walk(startpath, topdown=True):
-            # Exclude hidden directories and specified directories/files
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in exclude]
-            files = [fi for fi in files if not fi.startswith('.') and fi not in exclude]
+            # Exclude hidden directories and specified directories/files, then
+            # sort in place so os.walk recursion does not follow filesystem order.
+            dirs[:] = sorted(d for d in dirs if not d.startswith('.') and d not in exclude)
+            files = sorted(fi for fi in files if not fi.startswith('.') and fi not in exclude)
             # Get the relative path after the startpath
             relative_root = root[startpath_length:].lstrip(os.sep)
             level = relative_root.count(os.sep)
