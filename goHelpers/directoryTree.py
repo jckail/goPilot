@@ -32,8 +32,9 @@ def save_dir_tree_to_file(startpath, output_filepath, packages=None, exclude=Non
         startpath_length = len(startpath)
         for root, dirs, files in os.walk(startpath, topdown=True):
             # Exclude hidden directories and specified directories/files
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in exclude]
-            files = [fi for fi in files if not fi.startswith('.') and fi not in exclude]
+            # Mutate dirs so os.walk also visits descendants in stable order.
+            dirs[:] = sorted(d for d in dirs if not d.startswith('.') and d not in exclude)
+            files = sorted(fi for fi in files if not fi.startswith('.') and fi not in exclude)
             # Get the relative path after the startpath
             relative_root = root[startpath_length:].lstrip(os.sep)
             level = relative_root.count(os.sep)
@@ -103,7 +104,6 @@ if __name__ == "__main__":
 
 
     append_files_with_blurb('results/directory_tree.txt', 'results/directory_tree_updated.txt', 'results/projectDirectoryTree.txt', blurb_text)
-
 
 
 
