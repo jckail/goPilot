@@ -21,6 +21,8 @@ flowchart TD
   Parse --> Remote
   Wrapper --> Links[chatParse.py local thread links]
   Manager -. deleteAllFiles .-> Account[Account-level file deletion]
+  Export[exportContext.py standard-library CLI] --> ExportRead[Read selected Go source]
+  ExportRead --> ExportFiles[Fresh external analysis-context directory]
 ```
 
 | Boundary | Source |
@@ -28,13 +30,20 @@ flowchart TD
 | Flag forwarding and output paths | [ezRun](../ezRun.sh), [helper wrapper](../goHelpers/all_run.sh) |
 | Runtime config and orchestration | [main](../goHelpers/main.py) |
 | Context extraction | [getter](../goHelpers/getter.py), [tree](../goHelpers/directoryTree.py), [walker](../goHelpers/walkIt.py) |
+| Standalone context export | [export CLI](../goHelpers/exportContext.py), [operation contract](developer/cli.mdx#standalone-go-context-export) |
 | Optional context fetch | [HTML parser](../goHelpers/htmlParser.py) |
 | Provider lifecycle | [manager](../goHelpers/addGo.py) |
 | Error and link processing | [error parser](../goHelpers/errorParser.py), [chat parser](../goHelpers/chatParse.py) |
 
 ## State and side effects
 
-Source consolidation, tree assembly and output parsing write local artifacts. The launchers resolve helper paths from their own location; default outputs live in this checkout's `goHelpers/results`. They validate arguments and the selected context directory before helper work. `-h` and `--help` return without executing helpers or creating results. `-d` selects context and leaves Go commands in the caller's working directory.
+Source consolidation, tree assembly and output parsing write local artifacts. The provider-aware launchers resolve helper paths from their own location; default outputs live in this checkout's `goHelpers/results`. They validate arguments and the selected context directory before helper work. `-h` and `--help` return without executing helpers or creating results. `-d` selects context and leaves Go commands in the caller's working directory.
+
+The separate `python3 -B goHelpers/exportContext.py SOURCE NEW_OUTPUT_DIR` entry uses only standard-library helpers and performs no provider or Go operations. It requires an existing source and output parent, rejects every existing destination entry including dangling symlinks, and resolves paths to keep output outside the source even through parent symlinks. It exclusively creates a fresh directory with mode 0700 on POSIX. The bundle contains UTF-8 per-package analysis files, the authoritative package map, two legacy tree views and their combined context. The tree header uses actual discovered packages; known tree nesting/indentation limitations do not alter the authoritative source map.
+
+Only complete exports return 0 and print the destination path. Help returns 0 without side effects. Invalid arguments, source read/walk errors, publication or later write failures, and no eligible packages return 1 with a bounded one-line error. A created but incomplete destination is retained and reported rather than replacing existing output or writing generated files into the source. Analysis files are not guaranteed to compile, and exporting provides no atomic source snapshot, source-metadata preservation or crash-durability guarantee; POSIX directory creation establishes no Windows permission claim.
+
+The [export tests](../tests/test_export_context.py) exercise the standard-library CLI against isolated temporary projects, deterministic Unicode package bundles, source/prior-artifact preservation, destination rejection, actual read/publication errors and injected walk/later-write failures. A case-folding collision check is simulated, not a native Windows run. These checks establish no provider acceptance or Windows permission behavior.
 
 The outer launcher stops on helper failure before thread-log cleanup, Go checks or parsers. A failed Go check still sends its diagnostics to the error parser. The error parser reads the report before constructing the manager and supplies its own helper directory for prompt/context paths. The maintained `all_run.sh` is source; Makefile `create_script` and `clean` preserve it.
 

@@ -101,7 +101,7 @@ class TreeSuffixTests(unittest.TestCase):
             directory_tree.replace_suffix_in_file(str(source), str(output))
             actual = output.read_text(encoding="utf-8")
             self.assertIn("called: project.go's", actual)
-            self.assertIn("Go Packages are: , and pkg.go\n", actual)
+            self.assertIn("Go Packages are: pkg.go\n", actual)
             self.assertIn("project.go/\n", actual)
             self.assertIn("cache.go/\n", actual)
             for name in ["main_go.txt", "double.go_go.txt", "notes.go.md", "assets.golden", "café file_go.txt", "nested_go.txt"]:
