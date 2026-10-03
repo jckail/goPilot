@@ -2,6 +2,7 @@ import sys
 import os
 import hashlib
 import re
+import tempfile
 from urllib.parse import urlsplit
 import requests
 from bs4 import BeautifulSoup
@@ -63,8 +64,22 @@ def process_html(html_content):
 
 
 def save_text_to_file(text, filename):
-    with open(filename, "w") as file:
-        file.write(text)
+    """Publish complete UTF-8 context atomically, retaining old bytes on failure."""
+    descriptor, staging = tempfile.mkstemp(
+        prefix=".html-context-", suffix=".tmp", dir=os.path.dirname(filename) or "."
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+            descriptor = None  # The file object now owns the descriptor.
+            file.write(text)
+        os.replace(staging, filename)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        try:
+            os.unlink(staging)
+        except FileNotFoundError:
+            pass
 
 
 def generate_filename_from_url(url):
@@ -81,8 +96,8 @@ def fetchWebData(url,path):
     if html_content.startswith("HTTP error occurred:") or html_content.startswith(
         "Other error occurred:"
     ):
-        print(html_content)
-        return
+        print(" ".join(html_content.split())[:500], file=sys.stderr)
+        return False
 
     processed_text = process_html(html_content)
     # Use the URL to generate the output filename
@@ -92,6 +107,7 @@ def fetchWebData(url,path):
     os.makedirs(output_directory, exist_ok=True)
     save_text_to_file(processed_text, output_filename)
     print(f"Processed text saved to {output_filename}")
+    return True
 
 
 # Replace the URL with the actual URL from which you want to fetch and process the HTML content
@@ -103,4 +119,10 @@ if __name__ == "__main__":
     url = sys.argv[1]
     goHelperDirectory = sys.argv[2]
     
-    fetchWebData(url,goHelperDirectory)
+    try:
+        if fetchWebData(url, goHelperDirectory) is False:
+            sys.exit(1)
+    except Exception as error:
+        diagnostic = " ".join(str(error).split())[:500]
+        print(f"HTML context failed: {diagnostic}", file=sys.stderr)
+        sys.exit(1)
