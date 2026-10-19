@@ -4,7 +4,7 @@ title: goPilot developer and operation guide
 
 # goPilot developer and operation guide
 
-Inspect [ezRun.sh](../../ezRun.sh) and [all_run.sh](../../goHelpers/all_run.sh) before use. Historical `localtest/run.sh` and `cli_script.sh` names in the [original README](../legacy/README-original.md) do not exist here. Use `bash ezRun.sh --help` or `bash goHelpers/all_run.sh -h` for inert help (exit 0). Help runs no helper, creates no results directory and clears no thread log. Valid operational arguments still invoke the provider-aware helper; those launchers have no offline collection/dry-run mode. Use the separate [context export command](#standalone-go-context-export) for local analysis context without a provider.
+Inspect [ezRun.sh](../../ezRun.sh) and [all_run.sh](../../goHelpers/all_run.sh) before use. Historical `localtest/run.sh` and `cli_script.sh` names in the [original README](../legacy/README-original.md) do not exist here. Use `bash ezRun.sh --help` or `bash goHelpers/all_run.sh -h` for inert help (exit 0). Help runs no helper, creates no results directory and clears no thread log. Valid operational arguments still invoke the provider-aware helper; those launchers have no offline collection/dry-run mode. Use the separate [context export command](#standalone-go-context-export) for local analysis context without a provider. The [operations reference](operations-reference.md) holds the companion contract text that previously lived in the repository README.
 
 ## Standalone Go context export
 
@@ -99,10 +99,10 @@ Tests in [test_runtime_config.py](../../tests/test_runtime_config.py) compile on
 
 The discovery command also runs [test_getter.py](../../tests/test_getter.py) and [test_chat_parse.py](../../tests/test_chat_parse.py). These import the actual offline helpers and execute them against synthetic temporary files, checking generated context, source identity, output paths and input preservation. [Launcher tests](../../tests/test_launchers.py) run copied actual shell scripts with inert executable Python/Go/lint adapters, testing native paths, quoted arguments, caller cwd, validation/help, failure ordering and log preservation. [Error-parser tests](../../tests/test_error_parser.py) run its actual entry with an inert manager module, including missing-report rejection before manager construction. Selected `main.py` AST blocks remain separate and never import its provider-aware module. Offline helper execution does not establish assistant/file-upload or external Go integration. Make preservation tests run only when Make is installed and explicitly skip otherwise.
 
-In the shared native WSL workspace, inspect running jobs for this repository, including sibling worktrees, and agree on one verification owner. Run the Python suite through the foreground shared gate rather than the direct command above:
+In the shared native WSL workspace, inspect running jobs for this repository, including sibling worktrees, and agree on one verification owner. Run the Python suite through the foreground shared gate (a local lock wrapper on that workspace's PATH) rather than the direct command above:
 
 ```bash
-/home/jkail/.local/bin/agent-heavy-check -- python3 -B -m unittest discover -s tests -v
+agent-heavy-check -- python3 -B -m unittest discover -s tests -v
 ```
 
 Reuse the owner's result when it covers the selected source. Admission exit 75 means the command did not execute; preserve the log and report contention. Do not repeatedly queue the unchanged command, move it to another harness or worktree, or bypass the gate. A timeout likewise requires diagnosis before another attempt. A documentation-only change can be checked against live source and links without repeating a broad suite.
@@ -124,7 +124,7 @@ python3 -m venv .venv-html
 PATH="$PWD/.venv-html/bin:$PATH" bash goHelpers/scrapeWeb.sh 'https://example.org/docs'
 ```
 
-On GamingRig, the native Python 3.10 lacks the `ensurepip` prerequisite. The installed uv 0.12.10 supports this alternative environment bootstrap; use it instead of the first command, then run the same explicit pip and fetch commands:
+On the qualification workstation, the native Python 3.10 lacks the `ensurepip` prerequisite. The installed uv 0.12.10 supports this alternative environment bootstrap; use it instead of the first command, then run the same explicit pip and fetch commands:
 
 ```bash
 uv venv --python /usr/bin/python3 --no-python-downloads --seed --no-config .venv-html
@@ -147,7 +147,7 @@ uv pip compile requirements-html.in \
 
 In the shared WSL workspace, dependency resolution also uses the foreground heavy-check gate. Review and commit the complete generated `.txt` file. Installing that committed lock reproduces application versions; resolving after changing the input or tool can select different versions and requires fresh installation and runtime qualification. Keep provider packages outside this standalone dependency set.
 
-Local GamingRig qualification on 2026-10-03 used CPython 3.10.12 and uv 0.12.10. Two fresh environments installed identical application versions from the hash lock, passed `pip check`, and rejected an intentionally corrupted package hash. The bootstrap seed packages were pip 26.2.1, setuptools 84.0.0, wheel 0.48.0 and packaging 26.3. All 69 offline tests passed without skips. Seven real loopback cases covered a full document, repeated URL, body-less fragment, HTTP 404, refused connection, stalled headers and a stalled partial body; failed fetches preserved existing context, and owned server/temporary fixtures were cleaned up. This qualifies the documented Linux environment and local HTTP behavior; it does not qualify provider APIs, external websites or other platforms. A refused connection checks failure routing, not a measured connection-timeout deadline.
+Local workstation qualification on 2026-10-03 used CPython 3.10.12 and uv 0.12.10. Two fresh environments installed identical application versions from the hash lock, passed `pip check`, and rejected an intentionally corrupted package hash. The bootstrap seed packages were pip 26.2.1, setuptools 84.0.0, wheel 0.48.0 and packaging 26.3. All 69 offline tests passed without skips. Seven real loopback cases covered a full document, repeated URL, body-less fragment, HTTP 404, refused connection, stalled headers and a stalled partial body; failed fetches preserved existing context, and owned server/temporary fixtures were cleaned up. This qualifies the documented Linux environment and local HTTP behavior; it does not qualify provider APIs, external websites or other platforms. A refused connection checks failure routing, not a measured connection-timeout deadline.
 
 HTML web contexts use `web-<ASCII host/path slug up to 80 characters>-<full SHA-256 of the exact URL>_context.txt`. The public HTML helper accepts URLs independently of the fixed eight web resources in `main.py`. Host, scheme, port, query, fragment and percent-encoding spelling contribute to exact URL identity; repeated identical URLs reuse the same filename. The readable slug is only a label. Names stay bounded and contained in the helper's `additionalcontext` directory; request URLs and HTML processing remain unchanged.
 
