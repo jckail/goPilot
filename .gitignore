@@ -5,3 +5,6 @@ goHelpers/additionalcontext/*
 .venv-html/
 
 goHelpers/__pycache__/*
+
+# Agent worktrees (shared engineering standards)
+.worktrees/
