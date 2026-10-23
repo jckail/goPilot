@@ -81,4 +81,4 @@ The repository has no license file identified in this snapshot. Existing source 
 
 ## External project links
 
-[Documentation canvas](https://superdesign.dev/teams/daa6c1df-346f-4dc3-81dd-fb4f462aff90/projects/8ddc6d31-cab0-4a6a-b18e-706f0bf43ef2) · [Linear project](https://linear.app/jckail/project/gopilot-25d280e3a6b1)
+The Linear project and the documentation canvas for this repository are private workspace resources and are intentionally not linked from public documentation. Maintainers reach them through their own workspace access. Provider migration is tracked as JCK-210.
