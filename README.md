@@ -76,6 +76,6 @@ bash -n ezRun.sh goHelpers/all_run.sh
 python3 -B -m unittest discover -s tests -v
 ```
 
-CI runs the same checks in [source-contract.yml](.github/workflows/source-contract.yml). What the suite does and does not qualify is described under [Offline verification](docs/developer/operations-reference.md#offline-verification). The legacy [goHelpers/makefile](goHelpers/makefile) `install` target installs unpinned provider dependencies; prefer the pinned HTML environment for standalone fetching.
+Depot CI runs the same checks ([.depot/workflows/ci.yml](.depot/workflows/ci.yml)). What the suite does and does not qualify is described under [Offline verification](docs/developer/operations-reference.md#offline-verification). The legacy [goHelpers/makefile](goHelpers/makefile) `install` target installs unpinned provider dependencies; prefer the pinned HTML environment for standalone fetching.
 
 No license file is present in this repository.
